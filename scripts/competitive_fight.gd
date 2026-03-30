@@ -38,13 +38,18 @@ var p2_hit_flash := 0.0
 var p2_stun := 0.0
 
 # ─── Blame Abilities ──────────────────────────────────────────────────────
-const BLAME_SPEED := 220.0  # Slower — heavy brawler
+const BLAME_SPEED := 240.0  # Slightly slow — heavy brawler
 
-# Guilt Slam (Light Attack) — ground shockwave
+# Basic Punch — close range melee (both players have this)
+const PUNCH_RANGE := 70.0
+const PUNCH_DAMAGE := 1
+const PUNCH_KNOCKBACK := 200.0
+
+# Guilt Slam (Light Attack) — ground shockwave + melee punch
 var blame_slam_cd := 0.0
 var blame_slam_anim := 0.0
-const BLAME_SLAM_CD := 0.8
-const BLAME_SLAM_RANGE := 350.0  # Shockwave travels this far
+const BLAME_SLAM_CD := 0.6  # Faster cooldown
+const BLAME_SLAM_RANGE := 400.0  # Shockwave travels further
 var blame_shockwave_active := false
 var blame_shockwave_x := 0.0  # Current shockwave front position
 var blame_shockwave_origin := 0.0
@@ -54,17 +59,17 @@ const BLAME_SHOCKWAVE_HEIGHT := 50.0  # Must jump to avoid
 
 # Accusation (Heavy Attack) — ranged projectile
 var blame_accuse_cd := 0.0
-const BLAME_ACCUSE_CD := 1.2
-var blame_projectiles: Array[Dictionary] = []  # {pos, vel, size}
-const BLAME_PROJ_SPEED := 450.0
+const BLAME_ACCUSE_CD := 0.9  # Faster projectiles
+var blame_projectiles: Array[Dictionary] = []
+const BLAME_PROJ_SPEED := 500.0  # Faster speed
 
 # Burden Zone (Dodge) — slow field
 var blame_burden_cd := 0.0
-const BLAME_BURDEN_CD := 6.0
-var burden_zones: Array[Dictionary] = []  # {pos, timer}
-const BURDEN_DURATION := 4.5
-const BURDEN_RADIUS := 80.0
-const BURDEN_SLOW := 0.4  # 40% speed in zone
+const BLAME_BURDEN_CD := 5.0  # Slightly shorter cooldown
+var burden_zones: Array[Dictionary] = []
+const BURDEN_DURATION := 5.0  # Lasts longer
+const BURDEN_RADIUS := 100.0  # Bigger area
+const BURDEN_SLOW := 0.35  # Even slower (35% speed)
 
 # Self-Punishment (Both buttons) — sacrifice score for power
 var blame_punish_cd := 0.0
@@ -287,15 +292,27 @@ func _process_blame_abilities(_delta: float) -> void:
 
 	var dmg_mult: float = 2.0 if p1_powered_up else 1.0
 
-	# Guilt Slam (Light Attack) — ground shockwave
+	# Guilt Slam (Light Attack) — melee punch + ground shockwave
 	if Input.is_action_just_pressed("p1_attack") and blame_slam_cd <= 0:
 		blame_slam_cd = BLAME_SLAM_CD
 		blame_slam_anim = 1.0
+		# Melee punch if close enough
+		if p1_pos.distance_to(p2_pos) < PUNCH_RANGE and p2_stun <= 0 and denial_deflect_active <= 0:
+			var punch_dmg: int = PUNCH_DAMAGE * (2 if p1_powered_up else 1)
+			p1_damage += punch_dmg
+			p2_hit_flash = 0.6
+			p2_vel.x = p1_facing * PUNCH_KNOCKBACK
+			p2_vel.y = -100.0
+			p2_stun = 0.2
+			_spawn_sparks(p2_pos, Vector2(p1_facing, -0.5), GameManager.get_blame_color_light(), 8)
+			_spawn_score_popup(p2_pos, "+" + str(punch_dmg), GameManager.get_blame_color_light())
+			screen_shake = 0.25
+		# Shockwave always fires
 		blame_shockwave_active = true
 		blame_shockwave_origin = p1_pos.x
 		blame_shockwave_x = p1_pos.x
 		blame_shockwave_dir = p1_facing
-		GameManager.break_shards_near(p1_pos, 80.0, 1)
+		GameManager.break_shards_near(p1_pos, 90.0, 1)
 
 	# Accusation (Heavy Attack) — ranged projectile
 	if Input.is_action_just_pressed("p1_heavy") and blame_accuse_cd <= 0:
@@ -326,18 +343,27 @@ func _process_denial_abilities(_delta: float) -> void:
 	if p2_stun > 0:
 		return
 
-	# Suppress (Light Attack) — close-range push
+	# Suppress (Light Attack) — close-range push + melee punch
 	if Input.is_action_just_pressed("p2_attack") and denial_suppress_cd <= 0:
 		denial_suppress_cd = DENIAL_SUPPRESS_CD
 		denial_suppress_anim = 1.0
 		if p2_pos.distance_to(p1_pos) < DENIAL_SUPPRESS_RANGE and p1_stun <= 0:
-			var push_dir: float = signf(p1_pos.x - p2_pos.x)
-			if push_dir == 0: push_dir = p2_facing
-			p1_vel.x = push_dir * DENIAL_SUPPRESS_PUSH
-			p1_vel.y = -120.0
-			p2_damage += 1
-			p1_hit_flash = 0.5
-			GameManager.break_shards_near(p1_pos, 70.0, 2)
+			if denial_deflect_active > 0:
+				pass  # Don't push during deflect window
+			else:
+				var push_dir: float = signf(p1_pos.x - p2_pos.x)
+				if push_dir == 0: push_dir = p2_facing
+				p1_vel.x = push_dir * DENIAL_SUPPRESS_PUSH
+				p1_vel.y = -120.0
+				# Extra damage if very close (melee range)
+				var dmg: int = 2 if p2_pos.distance_to(p1_pos) < PUNCH_RANGE else 1
+				p2_damage += dmg
+				p1_hit_flash = 0.6
+				p1_stun = 0.15
+				GameManager.break_shards_near(p1_pos, 70.0, 2)
+				_spawn_sparks(p1_pos, Vector2(push_dir, -0.3), GameManager.get_denial_color_light(), 10)
+				_spawn_score_popup(p1_pos, "+" + str(dmg), GameManager.get_denial_color_light())
+				screen_shake = 0.2
 
 	# Deflect (Heavy Attack) — parry window
 	if Input.is_action_just_pressed("p2_heavy") and denial_deflect_cd <= 0:
@@ -369,6 +395,9 @@ func _process_denial_abilities(_delta: float) -> void:
 				p1_stun = 0.5
 				p1_hit_flash = 1.0
 				p2_damage += 3
+				_spawn_vfx(p1_pos, Color(1.0, 0.7, 0.3), 20, 250.0, 5.0)
+				_spawn_score_popup(p1_pos, "+3", GameManager.get_denial_color_light())
+				screen_shake = 0.6
 
 
 # ═══ UPDATE SYSTEMS ════════════════════════════════════════════════════════
@@ -382,12 +411,15 @@ func _update_shockwave(delta: float) -> void:
 	# Hit Denial if she's on the ground and shockwave passes through
 	if p2_on_ground and p2_stun <= 0 and denial_deflect_active <= 0:
 		if absf(p2_pos.x - blame_shockwave_x) < 40.0:
-			var dmg: int = 2 if p1_powered_up else 1
+			var dmg: int = 3 if p1_powered_up else 2
 			p2_hit_flash = 1.0
-			p2_vel.y = -300.0
+			p2_vel.y = -350.0
 			p2_on_ground = false
-			p2_stun = 0.4
+			p2_stun = 0.5
 			p1_damage += dmg
+			_spawn_vfx(p2_pos, GameManager.get_blame_color_light(), 12, 200.0, 4.0)
+			_spawn_score_popup(p2_pos, "+" + str(dmg), GameManager.get_blame_color_light())
+			screen_shake = 0.4
 			GameManager.break_shards_near(p2_pos, 90.0, 1)
 	elif denial_deflect_active > 0 and absf(p2_pos.x - blame_shockwave_x) < 50.0:
 		# Deflected! Stun Blame
@@ -469,125 +501,284 @@ func _update_decoys(delta: float) -> void:
 			decoy.timer = 0.0
 
 
+# ═══ VFX PARTICLES ═════════════════════════════════════════════════════════
+
+var vfx: Array[Dictionary] = []  # {pos, vel, color, life, max_life, size, type}
+var score_popups: Array[Dictionary] = []  # {pos, text, color, life}
+var screen_shake := 0.0
+
+
+func _spawn_vfx(pos: Vector2, col: Color, count: int, spread: float = 150.0, sz: float = 3.0) -> void:
+	for _i in range(count):
+		var angle: float = randf() * TAU
+		var spd: float = randf_range(30.0, spread)
+		vfx.append({"pos": pos, "vel": Vector2(cos(angle), sin(angle)) * spd,
+			"color": col, "life": 0.6, "max_life": 0.6, "size": randf_range(sz * 0.5, sz * 1.5), "type": 0})
+
+
+func _spawn_sparks(pos: Vector2, dir: Vector2, col: Color, count: int) -> void:
+	for _i in range(count):
+		var spread_angle: float = randf_range(-0.5, 0.5)
+		var spd: float = randf_range(100, 300)
+		vfx.append({"pos": pos, "vel": dir.rotated(spread_angle) * spd,
+			"color": col, "life": 0.4, "max_life": 0.4, "size": randf_range(1.5, 3.5), "type": 1})
+
+
+func _spawn_score_popup(pos: Vector2, text: String, col: Color) -> void:
+	score_popups.append({"pos": pos + Vector2(0, -30), "text": text, "color": col, "life": 1.0})
+
+
+func _update_vfx(delta: float) -> void:
+	screen_shake = maxf(0.0, screen_shake - delta * 5.0)
+
+	for i in range(vfx.size() - 1, -1, -1):
+		var p: Dictionary = vfx[i]
+		p["life"] = float(p["life"]) - delta
+		if float(p["life"]) <= 0.0:
+			vfx.remove_at(i)
+		else:
+			p["pos"] = Vector2(p["pos"]) + Vector2(p["vel"]) * delta
+			p["vel"] = Vector2(p["vel"]) * 0.92
+
+	for i in range(score_popups.size() - 1, -1, -1):
+		var p: Dictionary = score_popups[i]
+		p["life"] = float(p["life"]) - delta
+		p["pos"] = Vector2(p["pos"]) + Vector2(0, -40) * delta
+		if float(p["life"]) <= 0.0:
+			score_popups.remove_at(i)
+
+
 # ═══ DRAWING ═══════════════════════════════════════════════════════════════
 
 func _draw() -> void:
-	# ── Platform ──────────────────────────────────────────────────────
-	draw_rect(Rect2(PLATFORM_LEFT - 20, GROUND_Y, PLATFORM_RIGHT - PLATFORM_LEFT + 40, 12),
-		Color(0.25, 0.25, 0.3, 0.9))
-	draw_line(Vector2(PLATFORM_LEFT - 20, GROUND_Y), Vector2(PLATFORM_RIGHT + 20, GROUND_Y),
-		Color(0.4, 0.4, 0.48, 0.6), 2.0)
+	_update_vfx(get_process_delta_time())
+	var shake := Vector2.ZERO
+	if screen_shake > 0:
+		shake = Vector2(randf_range(-2, 2), randf_range(-2, 2)) * screen_shake * 5.0
 
-	# ── Burden Zones ──────────────────────────────────────────────────
+	# ── Arena: multi-level platforms ──────────────────────────────────
+	var pc := Color(0.2, 0.2, 0.27)
+	var pe := Color(0.35, 0.35, 0.44, 0.6)
+	# Main ground
+	draw_rect(Rect2(PLATFORM_LEFT - 20 + shake.x, GROUND_Y + shake.y, PLATFORM_RIGHT - PLATFORM_LEFT + 40, 14), pc)
+	draw_line(Vector2(PLATFORM_LEFT - 20 + shake.x, GROUND_Y + shake.y), Vector2(PLATFORM_RIGHT + 20 + shake.x, GROUND_Y + shake.y), pe, 2.0)
+	# Ground detail — hash marks
+	for gx in range(int(PLATFORM_LEFT), int(PLATFORM_RIGHT), 60):
+		draw_line(Vector2(gx + shake.x, GROUND_Y + 3 + shake.y), Vector2(gx + shake.x, GROUND_Y + 11 + shake.y), Color(0.25, 0.25, 0.32, 0.3), 1.0)
+	# Side pillars
+	draw_rect(Rect2(PLATFORM_LEFT - 25 + shake.x, GROUND_Y - 80 + shake.y, 10, 94), Color(0.18, 0.18, 0.24, 0.5))
+	draw_rect(Rect2(PLATFORM_RIGHT + 15 + shake.x, GROUND_Y - 80 + shake.y, 10, 94), Color(0.18, 0.18, 0.24, 0.5))
+	# Floating platforms
+	var fp_col := Color(0.22, 0.22, 0.3, 0.7)
+	draw_rect(Rect2(280 + shake.x, 420 + shake.y, 180, 10), fp_col)
+	draw_rect(Rect2(820 + shake.x, 420 + shake.y, 180, 10), fp_col)
+	draw_rect(Rect2(520 + shake.x, 320 + shake.y, 240, 10), fp_col)
+
+	# ── Burden Zones (dark vortex) ────────────────────────────────────
 	for zone: Dictionary in burden_zones:
-		var zp: Vector2 = zone.pos as Vector2
+		var zp: Vector2 = (zone.pos as Vector2) + shake
 		var life: float = (zone.timer as float) / BURDEN_DURATION
-		var za: float = life * 0.25
-		draw_circle(zp, BURDEN_RADIUS, Color(0.15, 0.1, 0.2, za))
-		draw_arc(zp, BURDEN_RADIUS, 0, TAU, 24, Color(0.3, 0.15, 0.35, za + 0.1), 2.0)
-		# Slow symbol
-		draw_string(ThemeDB.fallback_font, zp + Vector2(-8, 4), "~", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.5, 0.3, 0.5, za + 0.15))
+		var za: float = life * 0.35
+		# Swirling dark rings
+		for ring in range(4):
+			var r: float = BURDEN_RADIUS * (0.3 + float(ring) * 0.2)
+			var rot: float = pulse_time * (1.5 - float(ring) * 0.3) * (1.0 if ring % 2 == 0 else -1.0)
+			draw_arc(zp, r, rot, rot + TAU * 0.7, 16, Color(0.2, 0.1, 0.3, za * (1.0 - float(ring) * 0.2)), 2.5 - float(ring) * 0.4)
+		# Center dark mass
+		draw_circle(zp, 15, Color(0.1, 0.05, 0.15, za * 1.2))
+		# Outer glow
+		draw_circle(zp, BURDEN_RADIUS, Color(0.15, 0.08, 0.22, za * 0.15))
 
-	# ── Shockwave ─────────────────────────────────────────────────────
+	# ── Shockwave (ground crack + debris) ─────────────────────────────
 	if blame_shockwave_active:
-		var sw_y: float = GROUND_Y - 5
-		var sw_col := Color(0.3, 0.35, 0.7, 0.6)
-		if p1_powered_up:
-			sw_col = Color(0.5, 0.3, 0.8, 0.7)
-		# Draw shockwave as a series of lines at the wave front
-		for i in range(5):
-			var offset: float = float(i) * 8.0
-			var x: float = blame_shockwave_x - blame_shockwave_dir * offset
-			var h: float = BLAME_SHOCKWAVE_HEIGHT * (1.0 - float(i) / 5.0)
-			draw_line(Vector2(x, sw_y), Vector2(x, sw_y - h), sw_col, 3.0 - float(i) * 0.4)
+		var sw_y: float = GROUND_Y - 3 + shake.y
+		var sw_x: float = blame_shockwave_x + shake.x
+		var powered := p1_powered_up
+		var sw_col := Color(0.5, 0.3, 0.85, 0.8) if powered else Color(0.3, 0.4, 0.8, 0.7)
+		var glow_col := Color(0.4, 0.25, 0.7, 0.3) if powered else Color(0.25, 0.3, 0.65, 0.2)
+		# Ground crack line from origin to wave front
+		draw_line(Vector2(blame_shockwave_origin + shake.x, sw_y), Vector2(sw_x, sw_y), Color(sw_col.r, sw_col.g, sw_col.b, 0.3), 2.0)
+		# Wave front — tall energy pillar
+		var wave_h: float = 60.0 if powered else 45.0
+		draw_rect(Rect2(sw_x - 4, sw_y - wave_h, 8, wave_h), sw_col)
+		draw_rect(Rect2(sw_x - 8, sw_y - wave_h * 0.7, 16, wave_h * 0.5), glow_col)
+		# Trailing debris
+		for i in range(6):
+			var trail_x: float = sw_x - blame_shockwave_dir * float(i) * 18.0
+			var trail_h: float = wave_h * (1.0 - float(i) / 6.0)
+			var trail_a: float = 0.5 * (1.0 - float(i) / 6.0)
+			draw_line(Vector2(trail_x, sw_y), Vector2(trail_x, sw_y - trail_h), Color(sw_col.r, sw_col.g, sw_col.b, trail_a), 2.0)
 
-	# ── Projectiles ───────────────────────────────────────────────────
+	# ── Projectiles (glowing shards with trails) ─────────────────────
 	for proj: Dictionary in blame_projectiles:
-		var pp: Vector2 = proj.pos as Vector2
+		var pp: Vector2 = (proj.pos as Vector2) + shake
 		var sz: float = proj.size as float
-		draw_circle(pp, sz, Color(0.3, 0.35, 0.75, 0.8))
-		draw_circle(pp, sz * 0.5, Color(0.5, 0.55, 0.9, 0.5))
+		var pdir: Vector2 = (proj.vel as Vector2).normalized()
+		var powered := p1_powered_up
+		var proj_col := Color(0.4, 0.3, 0.85, 0.9) if powered else Color(0.3, 0.4, 0.8, 0.85)
+		# Glow
+		draw_circle(pp, sz + 6, Color(proj_col.r, proj_col.g, proj_col.b, 0.15))
+		# Crystal shard shape (diamond)
+		var pts := PackedVector2Array([
+			pp + pdir * sz * 1.5, pp + pdir.rotated(PI * 0.5) * sz * 0.6,
+			pp - pdir * sz * 0.8, pp + pdir.rotated(-PI * 0.5) * sz * 0.6])
+		draw_colored_polygon(pts, proj_col)
 		# Trail
-		draw_line(pp, pp - (proj.vel as Vector2).normalized() * 20.0, Color(0.3, 0.35, 0.7, 0.3), 2.0)
+		for t in range(4):
+			var trail_pos: Vector2 = pp - pdir * float(t + 1) * 10.0
+			var trail_a: float = 0.3 * (1.0 - float(t) / 4.0)
+			draw_circle(trail_pos, sz * 0.4, Color(proj_col.r, proj_col.g, proj_col.b, trail_a))
 
-	# ── Decoys ────────────────────────────────────────────────────────
+	# ── Decoys (ghostly Denial with shimmer) ──────────────────────────
 	for decoy: Dictionary in decoys:
-		var dp: Vector2 = decoy.pos as Vector2
-		var da: float = clampf((decoy.timer as float) / DECOY_DURATION, 0.0, 1.0) * 0.5
-		# Ghost of Denial
-		draw_circle(dp, 20, Color(GameManager.get_denial_color(), da))
-		draw_circle(dp, 12, Color(GameManager.get_denial_color_light(), da * 0.5))
+		var dp: Vector2 = (decoy.pos as Vector2) + shake
+		var da: float = clampf((decoy.timer as float) / DECOY_DURATION, 0.0, 1.0)
+		var flicker: float = sin(pulse_time * 12.0) * 0.15
+		var dcol := Color(GameManager.get_denial_color(), (da * 0.4 + flicker))
+		# Ghost body
+		draw_circle(dp + Vector2(0, -38), 18, dcol)
+		draw_circle(dp + Vector2(0, -63), 13, dcol)
+		draw_circle(dp + Vector2(-7, -8), 6, dcol)
+		draw_circle(dp + Vector2(7, -8), 6, dcol)
+		# Shimmer aura
+		draw_arc(dp + Vector2(0, -35), 30, 0, TAU, 16, Color(GameManager.get_denial_color_light(), da * 0.15 + flicker * 0.5), 1.5)
 
-	# ── Denial Deflect Shield ─────────────────────────────────────────
+	# ── Deflect Shield (golden arc with sparkles) ─────────────────────
 	if denial_deflect_active > 0:
-		var shield_a: float = denial_deflect_active / DENIAL_DEFLECT_WINDOW
-		var shield_col := Color(0.9, 0.7, 0.3, shield_a * 0.5)
-		draw_arc(p2_pos, 35, -PI * 0.5 - 0.8, -PI * 0.5 + 0.8, 16, shield_col, 4.0)
+		var sa: float = denial_deflect_active / DENIAL_DEFLECT_WINDOW
+		var sp2: Vector2 = p2_pos + shake
+		# Multi-layer shield arcs
+		for layer in range(3):
+			var r: float = 32.0 + float(layer) * 8.0
+			var w: float = 4.0 - float(layer) * 1.0
+			var a: float = sa * (0.6 - float(layer) * 0.15)
+			draw_arc(sp2 + Vector2(p2_facing * 15, -30), r, p2_facing * -0.9, p2_facing * 0.9, 20, Color(1.0, 0.85, 0.3, a), w)
 		if denial_deflect_success:
-			draw_circle(p2_pos, 40, Color(1.0, 0.9, 0.3, shield_a * 0.3))
+			# Big golden flash
+			draw_circle(sp2 + Vector2(0, -30), 50, Color(1.0, 0.9, 0.3, sa * 0.25))
+			_spawn_vfx(sp2 + Vector2(0, -30), Color(1.0, 0.85, 0.3), 6, 100.0, 2.0)
 
-	# ── Denial Burst AoE ──────────────────────────────────────────────
+	# ── Burst AoE (expanding warm rings + particles) ──────────────────
 	if denial_burst_anim > 0:
-		var burst_r: float = DENIAL_BURST_RADIUS * (1.0 - denial_burst_anim * 0.3)
-		draw_circle(p2_pos, burst_r, Color(0.95, 0.65, 0.3, denial_burst_anim * 0.2))
-		draw_arc(p2_pos, burst_r, 0, TAU, 32, Color(1.0, 0.8, 0.4, denial_burst_anim * 0.5), 3.0)
+		var sp2: Vector2 = p2_pos + shake
+		var ba: float = denial_burst_anim
+		for ring in range(3):
+			var r: float = DENIAL_BURST_RADIUS * (1.0 - ba * 0.2) * (0.4 + float(ring) * 0.3)
+			var a: float = ba * (0.4 - float(ring) * 0.1)
+			draw_arc(sp2 + Vector2(0, -30), r, 0, TAU, 32, Color(1.0, 0.7, 0.3, a), 3.0 - float(ring))
+		draw_circle(sp2 + Vector2(0, -30), 25, Color(1.0, 0.9, 0.5, ba * 0.3))
 
-	# ── Blame Power-Up Glow ───────────────────────────────────────────
+	# ── Power-Up Aura (swirling energy) ───────────────────────────────
 	if p1_powered_up:
-		var glow_a: float = 0.15 + sin(pulse_time * 5.0) * 0.08
-		draw_circle(p1_pos, 40, Color(0.4, 0.3, 0.7, glow_a))
+		var sp1: Vector2 = p1_pos + shake
+		for i in range(6):
+			var angle: float = pulse_time * 3.0 + float(i) * TAU / 6.0
+			var r: float = 35.0 + sin(pulse_time * 4.0 + float(i)) * 8.0
+			var orb_pos: Vector2 = sp1 + Vector2(cos(angle), sin(angle)) * r + Vector2(0, -35)
+			draw_circle(orb_pos, 3, Color(0.5, 0.3, 0.85, 0.4))
+		draw_circle(sp1 + Vector2(0, -35), 42, Color(0.4, 0.2, 0.7, 0.08 + sin(pulse_time * 5.0) * 0.04))
 
-	# ── P1 Blame (rectangles — heavy) ─────────────────────────────────
+	# ── P1 Blame (detailed rectangle character) ──────────────────────
 	var bc := GameManager.get_blame_color()
 	var bcl := GameManager.get_blame_color_light()
-	if p1_hit_flash > 0:
-		bc = bc.lerp(Color.WHITE, p1_hit_flash * 0.6)
-	if p1_stun > 0:
-		bc.a = 0.5
-	if p1_powered_up:
-		bc = bc.lerp(Color(0.5, 0.3, 0.8), 0.3)
+	if p1_hit_flash > 0: bc = bc.lerp(Color.WHITE, p1_hit_flash * 0.6)
+	if p1_stun > 0: bc.a = 0.5
+	if p1_powered_up: bc = bc.lerp(Color(0.5, 0.3, 0.8), 0.3)
+	var sp1: Vector2 = p1_pos + shake
+	var bob1: float = sin(pulse_time * 3.0) * 2.0 if p1_on_ground and p1_stun <= 0 else 0.0
 
-	# Body
-	draw_rect(Rect2(p1_pos.x - 16, p1_pos.y - 55, 32, 36), bc)
-	draw_rect(Rect2(p1_pos.x - 10, p1_pos.y - 49, 20, 24), Color(bcl.r, bcl.g, bcl.b, 0.25))
-	# Head
-	draw_rect(Rect2(p1_pos.x - 12, p1_pos.y - 72, 24, 19), bc)
-	# Eyes
-	draw_rect(Rect2(p1_pos.x + p1_facing * 3 - 6, p1_pos.y - 67, 4, 4), Color(0.7, 0.75, 0.9, 0.8))
-	draw_rect(Rect2(p1_pos.x + p1_facing * 3 + 2, p1_pos.y - 67, 4, 4), Color(0.7, 0.75, 0.9, 0.8))
-	# Legs
-	draw_rect(Rect2(p1_pos.x - 12, p1_pos.y - 22, 9, 22), bc)
-	draw_rect(Rect2(p1_pos.x + 3, p1_pos.y - 22, 9, 22), bc)
-	# Slam arm animation
+	# Shadow
+	draw_rect(Rect2(sp1.x - 14, GROUND_Y + shake.y - 2, 28, 4), Color(0, 0, 0, 0.15))
+	# Legs (animated bob)
+	var leg_off: float = sin(pulse_time * 6.0) * 3.0 if absf(p1_vel.x) > 30 else 0.0
+	draw_rect(Rect2(sp1.x - 13, sp1.y - 24 + bob1 + leg_off, 9, 24), bc)
+	draw_rect(Rect2(sp1.x + 4, sp1.y - 24 + bob1 - leg_off, 9, 24), bc)
+	# Body — with shoulder pads (heavier look)
+	draw_rect(Rect2(sp1.x - 18, sp1.y - 58 + bob1, 36, 36), bc)
+	draw_rect(Rect2(sp1.x - 22, sp1.y - 56 + bob1, 6, 12), bc)  # Left shoulder
+	draw_rect(Rect2(sp1.x + 16, sp1.y - 56 + bob1, 6, 12), bc)  # Right shoulder
+	draw_rect(Rect2(sp1.x - 11, sp1.y - 52 + bob1, 22, 24), Color(bcl.r, bcl.g, bcl.b, 0.2))
+	# Head — with a heavier brow
+	draw_rect(Rect2(sp1.x - 13, sp1.y - 76 + bob1, 26, 20), bc)
+	draw_rect(Rect2(sp1.x - 15, sp1.y - 76 + bob1, 30, 5), Color(bc.r * 0.7, bc.g * 0.7, bc.b * 0.7))  # Brow
+	# Eyes (glow when powered)
+	var eye_col := Color(0.8, 0.6, 1.0, 0.9) if p1_powered_up else Color(0.65, 0.7, 0.9, 0.8)
+	draw_rect(Rect2(sp1.x + p1_facing * 3 - 6, sp1.y - 70 + bob1, 5, 5), eye_col)
+	draw_rect(Rect2(sp1.x + p1_facing * 3 + 2, sp1.y - 70 + bob1, 5, 5), eye_col)
+	# Arms
+	var arm1_y: float = sp1.y - 48 + bob1
 	if blame_slam_anim > 0:
-		var arm_y: float = p1_pos.y - 45 + blame_slam_anim * 15.0
-		draw_rect(Rect2(p1_pos.x + p1_facing * 16, arm_y, p1_facing * 25, 10), bcl)
+		# Slam: arm slashes downward
+		var arm_ext: float = blame_slam_anim * 35.0
+		draw_rect(Rect2(sp1.x + p1_facing * 18, arm1_y - 5 + (1.0 - blame_slam_anim) * 20, p1_facing * arm_ext, 10), bcl)
+		draw_rect(Rect2(sp1.x + p1_facing * (18 + arm_ext) - 6, arm1_y + (1.0 - blame_slam_anim) * 18, 14, 14), bc)  # Fist
+	else:
+		draw_rect(Rect2(sp1.x + p1_facing * 18, arm1_y, 10, 8), Color(bc.r, bc.g, bc.b, 0.7))
+		draw_rect(Rect2(sp1.x - p1_facing * 20, arm1_y + 4, 10, 8), Color(bc.r, bc.g, bc.b, 0.5))
 
-	# ── P2 Denial (circles — quick) ───────────────────────────────────
+	# ── P2 Denial (detailed circle character) ─────────────────────────
 	var dc := GameManager.get_denial_color()
 	var dcl := GameManager.get_denial_color_light()
-	if p2_hit_flash > 0:
-		dc = dc.lerp(Color.WHITE, p2_hit_flash * 0.6)
-	if p2_stun > 0:
-		dc.a = 0.5
+	if p2_hit_flash > 0: dc = dc.lerp(Color.WHITE, p2_hit_flash * 0.6)
+	if p2_stun > 0: dc.a = 0.5
+	var sp2: Vector2 = p2_pos + shake
+	var bob2: float = sin(pulse_time * 3.5 + 1.0) * 2.0 if p2_on_ground and p2_stun <= 0 else 0.0
 
-	# Body
-	draw_circle(Vector2(p2_pos.x, p2_pos.y - 38), 18, dc)
-	draw_circle(Vector2(p2_pos.x, p2_pos.y - 38), 11, Color(dcl.r, dcl.g, dcl.b, 0.25))
+	# Shadow
+	draw_circle(Vector2(sp2.x, GROUND_Y + shake.y - 1), 12, Color(0, 0, 0, 0.12))
+	# Legs (bouncy circles)
+	var lbob: float = sin(pulse_time * 7.0) * 2.5 if absf(p2_vel.x) > 30 else 0.0
+	draw_circle(Vector2(sp2.x - 8, sp2.y - 8 + bob2 + lbob), 7, dc)
+	draw_circle(Vector2(sp2.x + 8, sp2.y - 8 + bob2 - lbob), 7, dc)
+	draw_circle(Vector2(sp2.x - 8, sp2.y - 20 + bob2), 5.5, dc)
+	draw_circle(Vector2(sp2.x + 8, sp2.y - 20 + bob2), 5.5, dc)
+	# Body (larger, with inner glow)
+	draw_circle(Vector2(sp2.x, sp2.y - 40 + bob2), 20, dc)
+	draw_circle(Vector2(sp2.x, sp2.y - 40 + bob2), 13, Color(dcl.r, dcl.g, dcl.b, 0.25))
+	# Scarf-like trailing detail
+	draw_circle(Vector2(sp2.x - p2_facing * 12, sp2.y - 32 + bob2), 5, Color(dc.r, dc.g, dc.b, 0.4))
 	# Head
-	draw_circle(Vector2(p2_pos.x, p2_pos.y - 63), 13, dc)
-	# Eyes
-	draw_circle(Vector2(p2_pos.x + p2_facing * 4 - 4, p2_pos.y - 65), 2.5, Color(0.95, 0.85, 0.7, 0.8))
-	draw_circle(Vector2(p2_pos.x + p2_facing * 4 + 4, p2_pos.y - 65), 2.5, Color(0.95, 0.85, 0.7, 0.8))
-	# Legs
-	draw_circle(Vector2(p2_pos.x - 7, p2_pos.y - 8), 6, dc)
-	draw_circle(Vector2(p2_pos.x + 7, p2_pos.y - 8), 6, dc)
-	draw_circle(Vector2(p2_pos.x - 7, p2_pos.y - 18), 5, dc)
-	draw_circle(Vector2(p2_pos.x + 7, p2_pos.y - 18), 5, dc)
-	# Suppress push animation
+	draw_circle(Vector2(sp2.x, sp2.y - 66 + bob2), 14, dc)
+	# Eyes (expressive)
+	var e2x: float = sp2.x + p2_facing * 5
+	var e2y: float = sp2.y - 68 + bob2
+	draw_circle(Vector2(e2x - 5, e2y), 3.5, Color(1, 1, 1, 0.9))
+	draw_circle(Vector2(e2x + 5, e2y), 3.5, Color(1, 1, 1, 0.9))
+	draw_circle(Vector2(e2x - 5 + p2_facing, e2y), 1.8, Color(0.2, 0.15, 0.1))  # Pupil
+	draw_circle(Vector2(e2x + 5 + p2_facing, e2y), 1.8, Color(0.2, 0.15, 0.1))
+	# Arms
 	if denial_suppress_anim > 0:
-		var push_r: float = 30.0 + (1.0 - denial_suppress_anim) * 40.0
-		draw_arc(p2_pos + Vector2(p2_facing * 20, -30), push_r, -0.6, 0.6, 12, Color(dcl.r, dcl.g, dcl.b, denial_suppress_anim * 0.4), 3.0)
+		var push_r: float = 25.0 + (1.0 - denial_suppress_anim) * 50.0
+		var push_a: float = denial_suppress_anim * 0.5
+		# Expanding push wave
+		draw_arc(sp2 + Vector2(p2_facing * 20, -38 + bob2), push_r, p2_facing * -0.8, p2_facing * 0.8, 16, Color(dcl.r, dcl.g, dcl.b, push_a), 3.0)
+		draw_arc(sp2 + Vector2(p2_facing * 20, -38 + bob2), push_r * 0.6, p2_facing * -0.6, p2_facing * 0.6, 12, Color(1.0, 0.9, 0.7, push_a * 0.5), 2.0)
+		# Extended arm
+		draw_circle(Vector2(sp2.x + p2_facing * 25, sp2.y - 42 + bob2), 6, dcl)
+	else:
+		draw_circle(Vector2(sp2.x + p2_facing * 18, sp2.y - 42 + bob2), 5, Color(dc.r, dc.g, dc.b, 0.6))
+		draw_circle(Vector2(sp2.x - p2_facing * 16, sp2.y - 38 + bob2), 5, Color(dc.r, dc.g, dc.b, 0.4))
+
+	# ── VFX Particles ─────────────────────────────────────────────────
+	for p: Dictionary in vfx:
+		var a: float = float(p["life"]) / float(p["max_life"])
+		var vcol: Color = Color(p["color"])
+		vcol.a = a
+		var vsz: float = float(p["size"]) * a
+		if int(p["type"]) == 1:
+			# Sparks — small bright lines
+			var vdir: Vector2 = Vector2(p["vel"]).normalized()
+			draw_line(Vector2(p["pos"]), Vector2(p["pos"]) + vdir * vsz * 3.0, vcol, 1.5)
+		else:
+			draw_circle(Vector2(p["pos"]) + shake, vsz, vcol)
+
+	# ── Score Popups ──────────────────────────────────────────────────
+	for popup: Dictionary in score_popups:
+		var pa: float = clampf(float(popup["life"]), 0.0, 1.0)
+		var pcol: Color = Color(popup["color"])
+		pcol.a = pa
+		var font := ThemeDB.fallback_font
+		draw_string(font, Vector2(popup["pos"]) + shake, popup["text"] as String, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, pcol)
 
 	# ── Dialogue ──────────────────────────────────────────────────────
 	if fight_text_alpha > 0 and fight_dialogue_index >= 0:
@@ -597,28 +788,33 @@ func _draw() -> void:
 		var font := ThemeDB.fallback_font
 		var text_str: String = fd.speaker + ": \"" + fd.text + "\""
 		var tw: float = font.get_string_size(text_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-		draw_string(font, Vector2(640 - tw * 0.5, 45), text_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, text_col)
+		draw_string(font, Vector2(640 - tw * 0.5, 45) + shake, text_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, text_col)
 
-	# ── Controls overlay during countdown ─────────────────────────────
+	# ── Controls during countdown ─────────────────────────────────────
 	if phase == 0:
-		var ca: float = 0.7 + sin(countdown_timer * 3.0) * 0.15
+		var ca: float = 0.65 + sin(countdown_timer * 3.0) * 0.12
 		var font := ThemeDB.fallback_font
-		var cc := Color(0.7, 0.7, 0.8, ca)
-		# P1 Blame abilities
-		draw_string(font, Vector2(80, 180), "BLAME — The Weight", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(GameManager.get_blame_color_light(), ca))
-		draw_string(font, Vector2(80, 208), "Move: WASD / Stick", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, cc)
-		draw_string(font, Vector2(80, 226), "Guilt Slam: F / X (ground shockwave)", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, cc)
-		draw_string(font, Vector2(80, 244), "Accusation: G / Y (projectile)", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, cc)
-		draw_string(font, Vector2(80, 262), "Burden Zone: R / B (slow field)", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, cc)
-		draw_string(font, Vector2(80, 280), "Self-Punishment: F+G (sacrifice 2pts, power up)", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.6, 0.5, 0.8, ca))
-
-		# P2 Denial abilities
-		draw_string(font, Vector2(720, 180), "DENIAL — The Escape", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(GameManager.get_denial_color_light(), ca))
-		draw_string(font, Vector2(720, 208), "Move: Arrows / Stick", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, cc)
-		draw_string(font, Vector2(720, 226), "Suppress: Enter / X (push away)", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, cc)
-		draw_string(font, Vector2(720, 244), "Deflect: RShift / Y (parry, reflects!)", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, cc)
-		draw_string(font, Vector2(720, 262), "Forget: Num0 / B (teleport + decoy)", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, cc)
-		draw_string(font, Vector2(720, 280), "Bright Burst: Enter+RShift (AoE, costs 2pts)", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.9, 0.7, 0.4, ca))
+		var cc := Color(0.65, 0.65, 0.75, ca)
+		var hl := Color(0.5, 0.5, 0.65, ca * 0.6)
+		# P1
+		draw_string(font, Vector2(80, 175), "BLAME — The Weight", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_blame_color_light(), ca))
+		draw_line(Vector2(80, 182), Vector2(310, 182), Color(GameManager.get_blame_color(), ca * 0.3), 1.0)
+		draw_string(font, Vector2(80, 205), "Move: WASD / Stick  |  Jump: W / A", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hl)
+		draw_string(font, Vector2(80, 225), "F / X : Guilt Slam (punch + shockwave)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+		draw_string(font, Vector2(80, 243), "G / Y : Accusation (cold projectile)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+		draw_string(font, Vector2(80, 261), "R / B : Burden Zone (slow field)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+		draw_string(font, Vector2(80, 281), "F+G  : Self-Punishment (-2pts, double dmg)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.55, 0.4, 0.8, ca))
+		# P2
+		draw_string(font, Vector2(740, 175), "DENIAL — The Escape", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_denial_color_light(), ca))
+		draw_line(Vector2(740, 182), Vector2(980, 182), Color(GameManager.get_denial_color(), ca * 0.3), 1.0)
+		draw_string(font, Vector2(740, 205), "Move: Arrows / Stick  |  Jump: Up / A", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hl)
+		draw_string(font, Vector2(740, 225), "Enter / X : Suppress (push + punch)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+		draw_string(font, Vector2(740, 243), "RShift / Y : Deflect (parry, reflects!)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+		draw_string(font, Vector2(740, 261), "Num0 / B : Forget (teleport + decoy)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+		draw_string(font, Vector2(740, 281), "Enter+RShift : Bright Burst (-2pts, AoE)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.9, 0.65, 0.35, ca))
+		# Center text
+		var ct_a: float = 0.5 + sin(pulse_time * 2.0) * 0.2
+		draw_string(font, Vector2(530, 450), "GET READY", HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color(0.7, 0.7, 0.8, ct_a))
 
 
 func _end_match() -> void:
