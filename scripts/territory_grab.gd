@@ -574,37 +574,5 @@ func _end_match() -> void:
 	match_over = true
 	blame_won  = p1_score > p2_score or (p1_score == p2_score and randf() > 0.5)
 	GameManager.register_competitive_win(blame_won)
-	phase = 1
-	_show_result_dialogue()
-
-
-func _show_result_dialogue() -> void:
-	var frag_id := GameManager.get_current_fragment_id()
-	var lines: Array[Dictionary] = []
-
-	if frag_id == GameManager.BAD_2:
-		lines = [
-			{"speaker": "", "text": "The fragments fall like rain... like that night.", "color": Color(0.5, 0.5, 0.55)},
-			{"speaker": "", "text": "...", "color": Color(0.4, 0.4, 0.45)},
-		]
-	elif frag_id == GameManager.GOOD_2:
-		lines = [
-			{"speaker": "", "text": "Each fragment held a sliver of warmth. A promise, spoken softly.", "color": Color(0.85, 0.65, 0.45)},
-		]
-	else:
-		lines = [
-			{"speaker": "", "text": "The memories scatter... but some pieces cling to us.", "color": Color(0.6, 0.6, 0.65)},
-		]
-
-	lines.append_array([
-		{"speaker": "Denial", "text": "Wait... I feel what you feel.",       "color": GameManager.get_denial_color_light()},
-		{"speaker": "Blame",  "text": "Because we ARE the same.",            "color": GameManager.get_blame_color_light()},
-		{"speaker": "Denial", "text": "Two halves. One mind.",               "color": GameManager.get_denial_color_light()},
-		{"speaker": "Blame",  "text": "Fighting ourselves this whole time.", "color": GameManager.get_blame_color_light()},
-	])
-
-	dialogue.play_dialogue(lines)
-
-
-func _on_dialogue_done() -> void:
+	# Post-match dialogue moved to fragment_reveal scene
 	phase = 2

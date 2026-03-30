@@ -98,9 +98,8 @@ func _start_dialogue() -> void:
 		{"speaker": "", "text": "...", "color": Color(0.4, 0.4, 0.45)},
 		{"speaker": "Denial", "text": "But we have to, don't we.", "color": GameManager.get_denial_color_light()},
 		{"speaker": "Blame", "text": "...Yeah.", "color": GameManager.get_blame_color_light()},
-		{"speaker": "Blame", "text": "We can't keep fighting. We need to face this together.", "color": GameManager.get_blame_color_light()},
-		{"speaker": "Denial", "text": "Together. Maybe... that's the only way through.", "color": GameManager.get_denial_color_light()},
 		{"speaker": "", "text": "The fighting stops. They walk together now.", "color": Color(0.6, 0.6, 0.65)},
+		{"speaker": "", "text": "We can't carry this alone. We have to help each other through it.", "color": Color(0.6, 0.6, 0.65)},
 	]
 	dialogue.play_dialogue(lines)
 

@@ -398,6 +398,29 @@ func _draw() -> void:
 	_draw_blame(p1_pos, p1_facing, p1_attack_anim, p1_hit_flash, p1_heavy_windup, p1_heavy_anim, p1_dodge_active)
 	_draw_denial(p2_pos, p2_facing, p2_attack_anim, p2_hit_flash, p2_heavy_windup, p2_heavy_anim, p2_dodge_active)
 
+	# --- Controls flash during countdown ---
+	if phase == 0:
+		var ctrl_alpha: float = 0.7 + sin(countdown_timer * 3.0) * 0.15
+		var font := ThemeDB.fallback_font
+		var cc := Color(0.7, 0.7, 0.8, ctrl_alpha)
+		var hc := Color(0.55, 0.55, 0.65, ctrl_alpha * 0.7)
+		# P1 controls (left side)
+		draw_string(font, Vector2(100, 200), "PLAYER 1 — BLAME", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(GameManager.get_blame_color_light(), ctrl_alpha))
+		draw_string(font, Vector2(100, 230), "Move: WASD / Left Stick", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cc)
+		draw_string(font, Vector2(100, 252), "Jump: W / A button", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cc)
+		draw_string(font, Vector2(100, 274), "Light Attack: F / X button", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cc)
+		draw_string(font, Vector2(100, 296), "Heavy Attack: G / Y button", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cc)
+		draw_string(font, Vector2(100, 318), "Dodge: R / B button", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cc)
+		# P2 controls (right side)
+		draw_string(font, Vector2(780, 200), "PLAYER 2 — DENIAL", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(GameManager.get_denial_color_light(), ctrl_alpha))
+		draw_string(font, Vector2(780, 230), "Move: Arrows / Left Stick", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cc)
+		draw_string(font, Vector2(780, 252), "Jump: Up / A button", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cc)
+		draw_string(font, Vector2(780, 274), "Light Attack: Enter / X button", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cc)
+		draw_string(font, Vector2(780, 296), "Heavy Attack: RShift / Y button", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cc)
+		draw_string(font, Vector2(780, 318), "Dodge: Num0 / B button", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, cc)
+		# Center hint
+		draw_string(font, Vector2(490, 420), "Break the glass!", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, hc)
+
 	# --- Dialogue ---
 	if fight_text_alpha > 0 and fight_dialogue_index >= 0:
 		var fd: Dictionary = fight_dialogue_queue[fight_dialogue_index]
@@ -605,32 +628,5 @@ func _end_match() -> void:
 		blame_won = randf() > 0.5
 
 	GameManager.register_competitive_win(blame_won)
-	phase = 2
-	_show_result_dialogue()
-
-
-func _show_result_dialogue() -> void:
-	var frag_id := GameManager.get_current_fragment_id()
-	var lines: Array[Dictionary] = []
-
-	if frag_id == GameManager.GOOD_1:
-		lines = [
-			{"speaker": "Denial", "text": "I remember this. We were so happy.", "color": GameManager.get_denial_color_light()},
-			{"speaker": "Blame", "text": "Yeah.. I never knew we hung out so much.", "color": GameManager.get_blame_color_light()},
-			{"speaker": "Denial", "text": "Wait, what? Who are you?", "color": GameManager.get_denial_color_light()},
-			{"speaker": "Blame", "text": "What do you mean? Who the hell are you?", "color": GameManager.get_blame_color_light()},
-		]
-	else:
-		lines = [
-			{"speaker": "Denial", "text": "But... why am I crying?", "color": GameManager.get_denial_color_light()},
-			{"speaker": "Blame", "text": "You don't remember that either?", "color": GameManager.get_blame_color_light()},
-			{"speaker": "Denial", "text": "I don't know what you're talking about.", "color": GameManager.get_denial_color_light()},
-			{"speaker": "Blame", "text": "Neither of us has the full picture, do we.", "color": GameManager.get_blame_color_light()},
-		]
-
-	dialogue.play_dialogue(lines)
-
-
-func _on_dialogue_done() -> void:
-	if phase == 2:
-		phase = 3
+	# Post-match dialogue moved to fragment_reveal scene
+	phase = 3
