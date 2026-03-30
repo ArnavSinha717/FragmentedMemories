@@ -130,5 +130,11 @@ func _draw() -> void:
 	draw_line(Vector2(640, 380), Vector2(660, 420), Color(0.5, 0.5, 0.55, crack_alpha * 0.6), 1.0)
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventJoypadButton and (event as InputEventJoypadButton).pressed:
+		if (event as InputEventJoypadButton).button_index == 2:  # X / Square
+			_on_play()
+
+
 func _on_play() -> void:
 	GameManager.advance_phase()
