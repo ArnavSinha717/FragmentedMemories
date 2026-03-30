@@ -264,16 +264,37 @@ func reset_game() -> void:
 
 
 func _debug_skip() -> void:
-	# For competitive minigames, register a random win + build fragment order
+	# Ensure fragment order is always built before skipping anything
+	if fragment_order.is_empty():
+		# Force a default order so nothing breaks
+		register_competitive_win(true)   # Blame wins round 1
+		register_competitive_win(false)  # Denial wins round 2
+
 	match current_phase:
 		Phase.COMPETITIVE_1:
-			register_competitive_win(randf() > 0.5)
+			if blame_wins + denial_wins < 1:
+				register_competitive_win(randf() > 0.5)
 		Phase.COMPETITIVE_2:
-			register_competitive_win(randf() > 0.5)
+			if blame_wins + denial_wins < 2:
+				register_competitive_win(randf() > 0.5)
 		Phase.FRAGMENT_REVEAL_1, Phase.FRAGMENT_REVEAL_2, Phase.FRAGMENT_REVEAL_3, Phase.FRAGMENT_REVEAL_4:
-			# Consume the fragment if not yet consumed
 			if revealed_fragments.size() < fragment_order.size():
 				get_next_fragment()
+		Phase.COOPERATIVE_1:
+			coop_phase = maxi(coop_phase, 1)
+		Phase.COOPERATIVE_2:
+			coop_phase = maxi(coop_phase, 2)
+		Phase.FULL_MEMORY:
+			# Make sure all fragments are consumed
+			while revealed_fragments.size() < fragment_order.size():
+				get_next_fragment()
+			# Stop any active corruption
+			collapse_active = false
+		Phase.BOSS_FIGHT:
+			collapse_active = false
+		Phase.FATALITY:
+			collapse_active = false
+
 	advance_phase()
 
 
