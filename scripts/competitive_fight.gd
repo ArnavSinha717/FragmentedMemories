@@ -108,8 +108,6 @@ func _ready() -> void:
 	p1_score_label.text = "BLAME: 0"
 	p2_score_label.text = "DENIAL: 0"
 
-	dialogue.dialogue_finished.connect(_on_dialogue_done)
-
 	fight_dialogue_queue = [
 		{"speaker": "Blame", "text": "Why are you still here?", "color": GameManager.get_blame_color_light()},
 		{"speaker": "Blame", "text": "Don't you remember what happened?", "color": GameManager.get_blame_color_light()},

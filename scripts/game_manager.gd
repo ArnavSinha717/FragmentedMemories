@@ -140,22 +140,22 @@ func generate_shards() -> void:
 			var tr_idx: int = tl_idx + 1
 			var bl_idx: int = (row + 1) * (SHARD_COLS + 1) + col
 			var br_idx: int = bl_idx + 1
-			var tl: Vector2 = grid_verts[tl_idx]
-			var tr: Vector2 = grid_verts[tr_idx]
-			var bl: Vector2 = grid_verts[bl_idx]
-			var br: Vector2 = grid_verts[br_idx]
+			var vtl: Vector2 = grid_verts[tl_idx]
+			var vtr: Vector2 = grid_verts[tr_idx]
+			var vbl: Vector2 = grid_verts[bl_idx]
+			var vbr: Vector2 = grid_verts[br_idx]
 
 			if randf() > 0.5:
-				_add_global_shard(PackedVector2Array([tl, tr, br]), col, row)
-				_add_global_shard(PackedVector2Array([tl, br, bl]), col, row)
+				_add_global_shard(PackedVector2Array([vtl, vtr, vbr]), col, row)
+				_add_global_shard(PackedVector2Array([vtl, vbr, vbl]), col, row)
 			else:
-				_add_global_shard(PackedVector2Array([tl, tr, bl]), col, row)
-				_add_global_shard(PackedVector2Array([tr, br, bl]), col, row)
+				_add_global_shard(PackedVector2Array([vtl, vtr, vbl]), col, row)
+				_add_global_shard(PackedVector2Array([vtr, vbr, vbl]), col, row)
 
 	shards_generated = true
 
 
-func _add_global_shard(pts: PackedVector2Array, col: int, row: int) -> void:
+func _add_global_shard(pts: PackedVector2Array, col: int, _row: int) -> void:
 	var norm_x: float = float(col) / float(SHARD_COLS)
 	var warm_bias: float = 1.0 - norm_x
 	# Muted revealed colors — subtle, not distracting during gameplay
