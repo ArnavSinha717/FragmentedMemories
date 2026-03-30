@@ -60,7 +60,7 @@ const SHADOW_HIT_PENALTY := 20.0
 var shadow_hit_cooldown := 0.0
 
 # ─── Exit ──────────────────────────────────────────────────────────────────
-var exit_rect := Rect2(555.0, 42.0, 170.0, 16.0)
+var exit_rect := Rect2(555.0, 55.0, 170.0, 14.0)
 var exit_timer := 0.0
 const EXIT_HOLD := 1.5
 
@@ -323,9 +323,9 @@ func _check_exit(delta: float) -> void:
 		return
 
 	var p1_on := p1_pos.x + PLAYER_SIZE > exit_rect.position.x and p1_pos.x - PLAYER_SIZE < exit_rect.end.x \
-		and absf((p1_pos.y + PLAYER_SIZE) - exit_rect.position.y) < 12.0
+		and absf((p1_pos.y + PLAYER_SIZE) - exit_rect.position.y) < 20.0
 	var p2_on := p2_pos.x + PLAYER_SIZE > exit_rect.position.x and p2_pos.x - PLAYER_SIZE < exit_rect.end.x \
-		and absf((p2_pos.y + PLAYER_SIZE) - exit_rect.position.y) < 12.0
+		and absf((p2_pos.y + PLAYER_SIZE) - exit_rect.position.y) < 20.0
 	if p1_on and p2_on:
 		exit_timer += delta
 		if exit_timer >= EXIT_HOLD:
