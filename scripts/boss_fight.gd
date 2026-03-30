@@ -239,7 +239,6 @@ func _show_fatality_prompt() -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.03, 0.03, 0.05).lerp(Color(0.03, 0.03, 0.03), 1.0 - world_color))
 	# Screen shake offset
 	var shake_offset := Vector2.ZERO
 	if screen_shake > 0:

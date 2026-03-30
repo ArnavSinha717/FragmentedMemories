@@ -85,8 +85,6 @@ func _start_scene() -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.05, 0.05, 0.07))
-
 	# Draw the current image if loaded
 	if current_texture != null:
 		var img_rect := Rect2(Vector2(340, 80), Vector2(600, 420))

@@ -3,7 +3,6 @@ extends Control
 @onready var title_label: Label = $VBox/TitleLabel
 @onready var subtitle_label: Label = $VBox/SubtitleLabel
 @onready var play_button: Button = $VBox/PlayButton
-@onready var bg: ColorRect = $BG
 
 var time_elapsed: float = 0.0
 
@@ -13,7 +12,6 @@ const NUM_SHAPES := 35
 
 
 func _ready() -> void:
-	bg.color = Color(0.06, 0.06, 0.1)
 	title_label.text = "FRACTURED MEMORIES"
 	subtitle_label.text = "A game about two halves of one mind"
 

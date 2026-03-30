@@ -356,8 +356,6 @@ func _update_catch_flashes(delta: float) -> void:
 
 # --- Drawing ---
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), GameManager.get_bg_color())
-
 	# --- Platforms ---
 	for plat: Dictionary in platforms:
 		var px: float = plat.x

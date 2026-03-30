@@ -44,13 +44,9 @@ const DODGE_DISTANCE := 150.0
 const DODGE_DURATION := 0.15
 const DODGE_SPEED := 1000.0  # px/s during dash
 
-# --- Shattered Glass ---
-const SHARD_COLS := 20
-const SHARD_ROWS := 12
-var grid_verts: Array[Vector2] = []  # (COLS+1) x (ROWS+1) shared vertices
-var shards: Array[Dictionary] = []
+# --- Shattered Glass (uses GameManager global shards) ---
 var ambient_break_timer := 0.0
-const AMBIENT_BREAK_INTERVAL := 0.6  # seconds between random ambient breaks
+const AMBIENT_BREAK_INTERVAL := 0.6
 
 # --- Players ---
 var p1_pos := Vector2(380, GROUND_Y)
@@ -97,7 +93,7 @@ var match_over := false
 var blame_won := false
 var phase: int = 0
 var countdown_timer := 2.5
-var falling_shards: Array[Dictionary] = []
+# falling_shards handled by GameManager
 
 # --- Fight dialogue ---
 var fight_dialogue_queue: Array[Dictionary] = []
@@ -121,84 +117,12 @@ func _ready() -> void:
 		{"speaker": "Denial", "text": "I don't remember anything. Stop.", "color": GameManager.get_denial_color_light()},
 	]
 
-	_generate_shards()
 	phase = 0
 	countdown_timer = 2.5
 
 
 # --- Shard generation with SHARED VERTEX GRID (no gaps) ---
-func _generate_shards() -> void:
-	shards.clear()
-	grid_verts.clear()
-
-	var cell_w: float = 1280.0 / float(SHARD_COLS)
-	var cell_h: float = 720.0 / float(SHARD_ROWS)
-
-	# Build shared vertex grid with jitter (edges pinned to screen boundary)
-	for row in range(SHARD_ROWS + 1):
-		for col in range(SHARD_COLS + 1):
-			var x: float = float(col) * cell_w
-			var y: float = float(row) * cell_h
-			# Jitter interior vertices only — edges stay pinned for full coverage
-			if col > 0 and col < SHARD_COLS and row > 0 and row < SHARD_ROWS:
-				x += randf_range(-cell_w * 0.25, cell_w * 0.25)
-				y += randf_range(-cell_h * 0.25, cell_h * 0.25)
-			grid_verts.append(Vector2(x, y))
-
-	# Build shards from the grid — each cell split into 2 triangles
-	for row in range(SHARD_ROWS):
-		for col in range(SHARD_COLS):
-			var tl_idx: int = row * (SHARD_COLS + 1) + col
-			var tr_idx: int = tl_idx + 1
-			var bl_idx: int = (row + 1) * (SHARD_COLS + 1) + col
-			var br_idx: int = bl_idx + 1
-
-			var tl: Vector2 = grid_verts[tl_idx]
-			var tr: Vector2 = grid_verts[tr_idx]
-			var bl: Vector2 = grid_verts[bl_idx]
-			var br: Vector2 = grid_verts[br_idx]
-
-			# Split each cell into 2 triangles along a random diagonal
-			if randf() > 0.5:
-				_add_shard(PackedVector2Array([tl, tr, br]), col, row)
-				_add_shard(PackedVector2Array([tl, br, bl]), col, row)
-			else:
-				_add_shard(PackedVector2Array([tl, tr, bl]), col, row)
-				_add_shard(PackedVector2Array([tr, br, bl]), col, row)
-
-
-func _add_shard(pts: PackedVector2Array, col: int, row: int) -> void:
-	# Color underneath — warm on left, cold on right, mixed in middle
-	var norm_x: float = float(col) / float(SHARD_COLS)
-	var warm_bias: float = 1.0 - norm_x
-	var revealed_color: Color
-	if randf() < warm_bias:
-		revealed_color = Color(
-			randf_range(0.7, 0.95),
-			randf_range(0.35, 0.6),
-			randf_range(0.2, 0.4),
-			0.85
-		)
-	else:
-		revealed_color = Color(
-			randf_range(0.15, 0.35),
-			randf_range(0.2, 0.45),
-			randf_range(0.5, 0.8),
-			0.85
-		)
-
-	var grey_val: float = randf_range(0.12, 0.22)
-	var center: Vector2 = (pts[0] + pts[1] + pts[2]) / 3.0
-
-	shards.append({
-		"points": pts,
-		"center": center,
-		"alive": true,
-		"surface_color": Color(grey_val, grey_val, grey_val + 0.02, 1.0),
-		"revealed_color": revealed_color,
-		"owner": 0,
-		"edge_color": Color(grey_val + 0.06, grey_val + 0.06, grey_val + 0.08, 0.35)
-	})
+# Shard generation moved to GameManager
 
 
 func _process(delta: float) -> void:
@@ -213,7 +137,6 @@ func _process(delta: float) -> void:
 		2: pass
 		3: GameManager.advance_phase()
 
-	_update_falling_shards(delta)
 	queue_redraw()
 
 
@@ -241,7 +164,7 @@ func _process_fight(delta: float) -> void:
 	ambient_break_timer -= delta
 	if ambient_break_timer <= 0:
 		ambient_break_timer = AMBIENT_BREAK_INTERVAL + randf_range(-0.2, 0.3)
-		_break_random_shard()
+		GameManager.break_random_shards(1)
 
 	# --- P1 (Blame) movement ---
 	_process_player_movement(delta, true)
@@ -284,7 +207,7 @@ func _process_fight(delta: float) -> void:
 			p2_vel.x = sign(p2_pos.x - p1_pos.x) * LIGHT_KNOCKBACK_X
 			p2_vel.y = LIGHT_KNOCKBACK_Y
 			p2_on_ground = false
-			var broken: int = _break_shards_near(p2_pos, 1, LIGHT_SHARD_RADIUS)
+			var broken: int = GameManager.break_shards_near(p2_pos, 1, LIGHT_SHARD_RADIUS)
 			p1_hits += broken
 			p1_score_label.text = "BLAME: " + str(p1_hits)
 
@@ -297,7 +220,7 @@ func _process_fight(delta: float) -> void:
 			p1_vel.x = sign(p1_pos.x - p2_pos.x) * LIGHT_KNOCKBACK_X
 			p1_vel.y = LIGHT_KNOCKBACK_Y
 			p1_on_ground = false
-			var broken: int = _break_shards_near(p1_pos, 2, LIGHT_SHARD_RADIUS)
+			var broken: int = GameManager.break_shards_near(p1_pos, 2, LIGHT_SHARD_RADIUS)
 			p2_hits += broken
 			p2_score_label.text = "DENIAL: " + str(p2_hits)
 
@@ -426,11 +349,11 @@ func _process_heavy_windup(delta: float, is_p1: bool) -> void:
 					p2_vel.x = sign(p2_pos.x - p1_pos.x) * HEAVY_KNOCKBACK_X
 					p2_vel.y = HEAVY_KNOCKBACK_Y
 					p2_on_ground = false
-					var broken: int = _break_shards_near(p2_pos, 1, HEAVY_SHARD_RADIUS)
+					var broken: int = GameManager.break_shards_near(p2_pos, 1, HEAVY_SHARD_RADIUS)
 					p1_hits += broken
 					p1_score_label.text = "BLAME: " + str(p1_hits)
 				# Also break shards at the attacker position for heavy slam visual
-				var self_broken: int = _break_shards_near(p1_pos, 1, HEAVY_SHARD_RADIUS * 0.5)
+				var self_broken: int = GameManager.break_shards_near(p1_pos, 1, HEAVY_SHARD_RADIUS * 0.5)
 				p1_hits += self_broken
 				p1_score_label.text = "BLAME: " + str(p1_hits)
 	else:
@@ -443,98 +366,19 @@ func _process_heavy_windup(delta: float, is_p1: bool) -> void:
 					p1_vel.x = sign(p1_pos.x - p2_pos.x) * HEAVY_KNOCKBACK_X
 					p1_vel.y = HEAVY_KNOCKBACK_Y
 					p1_on_ground = false
-					var broken: int = _break_shards_near(p1_pos, 2, HEAVY_SHARD_RADIUS)
+					var broken: int = GameManager.break_shards_near(p1_pos, 2, HEAVY_SHARD_RADIUS)
 					p2_hits += broken
 					p2_score_label.text = "DENIAL: " + str(p2_hits)
-				var self_broken: int = _break_shards_near(p2_pos, 2, HEAVY_SHARD_RADIUS * 0.5)
+				var self_broken: int = GameManager.break_shards_near(p2_pos, 2, HEAVY_SHARD_RADIUS * 0.5)
 				p2_hits += self_broken
 				p2_score_label.text = "DENIAL: " + str(p2_hits)
 
 
-func _break_shards_near(impact_pos: Vector2, breaker: int, radius: float = 140.0) -> int:
-	var broken_count: int = 0
-	for shard: Dictionary in shards:
-		if not shard.alive:
-			continue
-		var dist: float = (shard.center as Vector2).distance_to(impact_pos)
-		if dist < radius:
-			var chance: float = 1.0 - (dist / radius)
-			if randf() < chance * 0.8:
-				_shatter_shard(shard, impact_pos)
-				shard.owner = breaker
-				broken_count += 1
-	return broken_count
-
-
-func _break_random_shard() -> void:
-	# Pick a random alive shard anywhere on screen and break it
-	var alive_indices: Array[int] = []
-	for i in range(shards.size()):
-		if shards[i].alive:
-			alive_indices.append(i)
-	if alive_indices.is_empty():
-		return
-	var pick: int = alive_indices[randi() % alive_indices.size()]
-	var shard: Dictionary = shards[pick]
-	# Ambient breaks don't count for either player — just visual decay
-	_shatter_shard(shard, shard.center as Vector2 + Vector2(0, -30))
-	shard.owner = 0  # neutral break
-
-
-func _shatter_shard(shard: Dictionary, impact_pos: Vector2) -> void:
-	shard.alive = false
-	var center: Vector2 = shard.center
-	var vel: Vector2 = (center - impact_pos).normalized() * randf_range(50, 180)
-	vel.y -= randf_range(40, 130)
-	falling_shards.append({
-		"points": shard.points,
-		"center": Vector2(center.x, center.y),
-		"vel": vel,
-		"rot": randf_range(-3.0, 3.0),
-		"rot_current": 0.0,
-		"alpha": 1.0,
-		"color": shard.surface_color
-	})
-
-
-func _update_falling_shards(delta: float) -> void:
-	for i in range(falling_shards.size() - 1, -1, -1):
-		var fs: Dictionary = falling_shards[i]
-		fs.vel = (fs.vel as Vector2) + Vector2(0, 400) * delta
-		fs.center = (fs.center as Vector2) + (fs.vel as Vector2) * delta
-		fs.rot_current = (fs.rot_current as float) + (fs.rot as float) * delta
-		fs.alpha = (fs.alpha as float) - delta * 0.7
-		if (fs.alpha as float) <= 0 or (fs.center as Vector2).y > 800:
-			falling_shards.remove_at(i)
+# Shard breaking/falling functions now in GameManager
 
 
 func _draw() -> void:
-	# --- Revealed color layer (drawn first, shards sit on top) ---
-	draw_rect(Rect2(0, 0, 1280, 720), GameManager.get_bg_color())
-
-	# --- Draw ALL shards ---
-	for shard: Dictionary in shards:
-		var pts: PackedVector2Array = shard.points
-		if shard.alive:
-			# Intact — grey glass
-			draw_colored_polygon(pts, shard.surface_color as Color)
-			# Crack edges
-			for j in range(pts.size()):
-				draw_line(pts[j], pts[(j + 1) % pts.size()], shard.edge_color as Color, 1.0)
-		else:
-			# Broken — show color underneath
-			draw_colored_polygon(pts, shard.revealed_color as Color)
-
-	# --- Falling shards ---
-	for fs: Dictionary in falling_shards:
-		var col: Color = fs.color
-		col.a = fs.alpha
-		var offset: Vector2 = (fs.center as Vector2) - _polygon_center(fs.points as PackedVector2Array)
-		var shifted := PackedVector2Array()
-		for p in (fs.points as PackedVector2Array):
-			shifted.append(p + offset)
-		if shifted.size() >= 3:
-			draw_colored_polygon(shifted, col)
+	# Shards drawn by global ShardBackground autoload
 
 	# --- Platform ---
 	draw_rect(Rect2(PLATFORM_LEFT - 20, GROUND_Y, PLATFORM_RIGHT - PLATFORM_LEFT + 40, 12),
@@ -749,13 +593,6 @@ func _draw_denial_afterimage(pos: Vector2, facing: float, alpha: float) -> void:
 	draw_circle(Vector2(pos.x + 7, pos.y - 8), 6, c)
 	draw_circle(Vector2(pos.x, pos.y - 40), 18, c)
 	draw_circle(Vector2(pos.x, pos.y - 65), 13, c)
-
-
-func _polygon_center(pts: PackedVector2Array) -> Vector2:
-	var sum := Vector2.ZERO
-	for p in pts:
-		sum += p
-	return sum / maxf(float(pts.size()), 1.0)
 
 
 func _end_match() -> void:

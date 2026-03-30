@@ -379,8 +379,6 @@ func _collide_player_with_block(is_p1: bool, block_index: int) -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.07, 0.07, 0.1))
-
 	# Draw platforms
 	var plat_color := Color(0.18, 0.18, 0.22)
 	var plat_edge_color := Color(0.3, 0.3, 0.35, 0.6)

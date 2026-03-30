@@ -474,8 +474,6 @@ func _get_visibility(world_pos: Vector2) -> float:
 # === DRAWING ===
 
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.02, 0.02, 0.03))
-
 	if phase == 1:
 		_draw_guilt_flash()
 		return

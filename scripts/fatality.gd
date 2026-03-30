@@ -90,7 +90,6 @@ func _create_burst() -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.03, 0.03, 0.05))
 	# Boss remnant (fading)
 	if boss_fade > 0:
 		var bp := Vector2(640, 250)

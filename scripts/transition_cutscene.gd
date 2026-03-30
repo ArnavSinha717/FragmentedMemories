@@ -57,7 +57,6 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.08, 0.08, 0.1))
 	# Soft particles
 	for p: Dictionary in particles:
 		draw_circle(p.pos, p.size, Color(0.5, 0.5, 0.55, p.alpha))

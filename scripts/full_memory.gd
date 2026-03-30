@@ -5,7 +5,7 @@ extends Control
 @onready var dialogue: Node = $DialogueSystem
 
 var time_elapsed := 0.0
-var phase: int = 0 # 0=assembly, 1=dialogue, 2=guilt_emerges, 3=done
+var phase: int = 0 # 0=assembly, 1=dialogue, 2=collapse, 3=guilt_emerges, 4=done
 var fragment_positions: Array[Vector2] = [
 	Vector2(320, 220), Vector2(960, 220),
 	Vector2(320, 480), Vector2(960, 480)
@@ -40,18 +40,21 @@ func _process(delta: float) -> void:
 				_start_dialogue()
 
 		1: pass # Dialogue
-		2: # Guilt emerges
-			guilt_alpha = min(1.0, guilt_alpha + delta * 0.4)
-			if time_elapsed > 3.0:
+		2: # Collapse — shards break to reveal GUILT
+			if not GameManager.collapse_active and GameManager.get_alive_shard_count() <= 0:
 				phase = 3
-		3:
+				time_elapsed = 0.0
+		3: # Guilt emerges
+			guilt_alpha = min(1.0, guilt_alpha + delta * 0.3)
+			if time_elapsed > 4.0:
+				phase = 4
+		4:
 			GameManager.advance_phase()
 
 	queue_redraw()
 
 
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.04, 0.04, 0.06))
 	# Draw connecting lines between fragments
 	for i in range(fragment_reveal_index):
 		for j in range(i + 1, fragment_reveal_index):
@@ -140,3 +143,4 @@ func _on_dialogue_done() -> void:
 	if phase == 1:
 		phase = 2
 		time_elapsed = 0.0
+		GameManager.trigger_collapse()  # All remaining shards break dramatically

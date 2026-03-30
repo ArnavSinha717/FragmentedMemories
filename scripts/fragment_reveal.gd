@@ -319,9 +319,6 @@ func _physics_process(_delta: float) -> void:
 
 
 func _draw() -> void:
-	# Background
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.05, 0.05, 0.08))
-
 	# Fade overlay (black)
 	if fade_alpha > 0.01:
 		draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, fade_alpha))

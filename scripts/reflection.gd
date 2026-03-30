@@ -53,7 +53,6 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0.04, 0.04, 0.06))
 	# Particles
 	for p: Dictionary in particles:
 		draw_circle(p.pos, p.size, p.color)
