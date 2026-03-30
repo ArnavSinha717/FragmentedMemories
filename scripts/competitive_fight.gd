@@ -56,7 +56,7 @@ var p1_attack_timer := 0.0
 var p1_attack_anim := 0.0
 var p1_hit_flash := 0.0
 var p1_facing := 1.0
-var p1_hits := 0
+var p1_damage := 0  # Damage dealt by P1 to P2
 
 # P1 expanded combat state
 var p1_heavy_timer := 0.0       # cooldown remaining
@@ -75,7 +75,7 @@ var p2_attack_timer := 0.0
 var p2_attack_anim := 0.0
 var p2_hit_flash := 0.0
 var p2_facing := -1.0
-var p2_hits := 0
+var p2_damage := 0  # Damage dealt by P2 to P1
 
 # P2 expanded combat state
 var p2_heavy_timer := 0.0
@@ -205,9 +205,9 @@ func _process_fight(delta: float) -> void:
 			p2_vel.x = sign(p2_pos.x - p1_pos.x) * LIGHT_KNOCKBACK_X
 			p2_vel.y = LIGHT_KNOCKBACK_Y
 			p2_on_ground = false
-			var broken: int = GameManager.break_shards_near(p2_pos, 1, LIGHT_SHARD_RADIUS)
-			p1_hits += broken
-			p1_score_label.text = "BLAME: " + str(p1_hits)
+			GameManager.break_shards_near(p2_pos, 1, LIGHT_SHARD_RADIUS)  # Visual only
+			p1_damage += 1
+			p1_score_label.text = "BLAME: " + str(p1_damage)
 
 	# P2 light attacks P1
 	if Input.is_action_just_pressed("p2_attack") and p2_attack_timer <= 0 and p2_dodge_active <= 0 and p2_heavy_windup <= 0:
@@ -218,9 +218,9 @@ func _process_fight(delta: float) -> void:
 			p1_vel.x = sign(p1_pos.x - p2_pos.x) * LIGHT_KNOCKBACK_X
 			p1_vel.y = LIGHT_KNOCKBACK_Y
 			p1_on_ground = false
-			var broken: int = GameManager.break_shards_near(p1_pos, 2, LIGHT_SHARD_RADIUS)
-			p2_hits += broken
-			p2_score_label.text = "DENIAL: " + str(p2_hits)
+			GameManager.break_shards_near(p1_pos, 2, LIGHT_SHARD_RADIUS)  # Visual only
+			p2_damage += 1
+			p2_score_label.text = "DENIAL: " + str(p2_damage)
 
 	# --- Heavy Attacks (initiate windup) ---
 	if Input.is_action_just_pressed("p1_heavy") and p1_heavy_timer <= 0 and p1_dodge_active <= 0 and p1_heavy_windup <= 0:
@@ -247,9 +247,9 @@ func _process_fight(delta: float) -> void:
 		p2_afterimage_timer = 1.0
 
 	# Update hue
-	var total_hits: float = float(p1_hits + p2_hits)
-	if total_hits > 0:
-		var target_hue: float = float(p2_hits) / total_hits
+	var total_dmg: float = float(p1_damage + p2_damage)
+	if total_dmg > 0:
+		var target_hue: float = float(p2_damage) / total_dmg
 		GameManager.set_hue(lerpf(GameManager.hue_value, target_hue, 3.0 * delta))
 
 
@@ -347,13 +347,11 @@ func _process_heavy_windup(delta: float, is_p1: bool) -> void:
 					p2_vel.x = sign(p2_pos.x - p1_pos.x) * HEAVY_KNOCKBACK_X
 					p2_vel.y = HEAVY_KNOCKBACK_Y
 					p2_on_ground = false
-					var broken: int = GameManager.break_shards_near(p2_pos, 1, HEAVY_SHARD_RADIUS)
-					p1_hits += broken
-					p1_score_label.text = "BLAME: " + str(p1_hits)
-				# Also break shards at the attacker position for heavy slam visual
-				var self_broken: int = GameManager.break_shards_near(p1_pos, 1, HEAVY_SHARD_RADIUS * 0.5)
-				p1_hits += self_broken
-				p1_score_label.text = "BLAME: " + str(p1_hits)
+					GameManager.break_shards_near(p2_pos, 1, HEAVY_SHARD_RADIUS)
+					p1_damage += 3  # Heavy hits deal 3 damage
+					p1_score_label.text = "BLAME: " + str(p1_damage)
+				# Slam visual — shards break at attacker position too
+				GameManager.break_shards_near(p1_pos, 1, HEAVY_SHARD_RADIUS * 0.5)
 	else:
 		if p2_heavy_windup > 0:
 			p2_heavy_windup -= delta
@@ -364,12 +362,10 @@ func _process_heavy_windup(delta: float, is_p1: bool) -> void:
 					p1_vel.x = sign(p1_pos.x - p2_pos.x) * HEAVY_KNOCKBACK_X
 					p1_vel.y = HEAVY_KNOCKBACK_Y
 					p1_on_ground = false
-					var broken: int = GameManager.break_shards_near(p1_pos, 2, HEAVY_SHARD_RADIUS)
-					p2_hits += broken
-					p2_score_label.text = "DENIAL: " + str(p2_hits)
-				var self_broken: int = GameManager.break_shards_near(p2_pos, 2, HEAVY_SHARD_RADIUS * 0.5)
-				p2_hits += self_broken
-				p2_score_label.text = "DENIAL: " + str(p2_hits)
+					GameManager.break_shards_near(p1_pos, 2, HEAVY_SHARD_RADIUS)
+					p2_damage += 3
+					p2_score_label.text = "DENIAL: " + str(p2_damage)
+				GameManager.break_shards_near(p2_pos, 2, HEAVY_SHARD_RADIUS * 0.5)
 
 
 # Shard breaking/falling functions now in GameManager
@@ -618,9 +614,9 @@ func _draw_denial_afterimage(pos: Vector2, facing: float, alpha: float) -> void:
 
 func _end_match() -> void:
 	match_over = true
-	if p1_hits > p2_hits:
+	if p1_damage > p2_damage:
 		blame_won = true
-	elif p2_hits > p1_hits:
+	elif p2_damage > p1_damage:
 		blame_won = false
 	else:
 		blame_won = randf() > 0.5
