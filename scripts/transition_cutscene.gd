@@ -90,6 +90,14 @@ func _draw() -> void:
 
 func _start_dialogue() -> void:
 	var lines: Array[Dictionary] = [
+		{"speaker": "Denial", "text": "Why is there so much blood?", "color": GameManager.get_denial_color_light()},
+		{"speaker": "", "text": "...", "color": Color(0.4, 0.4, 0.45)},
+		{"speaker": "Blame", "text": "...You really don't remember.", "color": GameManager.get_blame_color_light()},
+		{"speaker": "Denial", "text": "I don't want to.", "color": GameManager.get_denial_color_light()},
+		{"speaker": "Blame", "text": "Neither do I.", "color": GameManager.get_blame_color_light()},
+		{"speaker": "", "text": "...", "color": Color(0.4, 0.4, 0.45)},
+		{"speaker": "Denial", "text": "But we have to, don't we.", "color": GameManager.get_denial_color_light()},
+		{"speaker": "Blame", "text": "...Yeah.", "color": GameManager.get_blame_color_light()},
 		{"speaker": "", "text": "The fighting stops. They walk together now.", "color": Color(0.6, 0.6, 0.65)},
 		{"speaker": "", "text": "We can't carry this alone. We have to help each other through it.", "color": Color(0.6, 0.6, 0.65)},
 	]
