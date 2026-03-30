@@ -1,66 +1,92 @@
 extends Control
 
-## Competitive Minigame 2 — Catch the Falling Memories.
-## Memory fragments rain from the sky. Players jump between platforms to catch them.
-## Blame (P1) catches DARK/COLD fragments, Denial (P2) catches WARM/BRIGHT fragments.
-## Catching your own color = +1, wrong color = -1 and fragment shatters.
+## Competitive Minigame 2 — Gravity Run: Catch the Memories.
+## Both players start on the floor. Press jump to flip gravity and fly to the ceiling.
+## Memory fragments scroll right→left through the middle band of the screen.
+## Catch your colour while mid-flight. Pits scroll right→left on floor/ceiling — step in = -1pt.
+## Catching the wrong colour = -1pt.
 
 @onready var dialogue: Node = $DialogueSystem
 @onready var timer_label: Label = $HUD/TimerLabel
 @onready var p1_score_label: Label = $HUD/P1Score
 @onready var p2_score_label: Label = $HUD/P2Score
 
-# --- Physics ---
-const GRAVITY := 900.0
-const JUMP_FORCE := -460.0
-const PLAYER_SPEED := 280.0
-const MATCH_TIME := 35.0
-const GROUND_Y := 640.0
-const LEFT_WALL := 40.0
-const RIGHT_WALL := 1240.0
-const CEILING := 40.0
+# ── Layout ──────────────────────────────────────────────────────────────────
+const SCREEN_W    := 1280.0
+const SCREEN_H    :=  720.0
+const FLOOR_Y     :=  680.0   # y of floor surface (player feet rest here)
+const CEILING_Y   :=   40.0   # y of ceiling surface (player head touches here)
+const FLOOR_THICK :=   40.0
+const CEIL_THICK  :=   40.0
+const PLAYER_H    :=   44.0   # visual height
 
-# --- Platforms (x, y, width) ---
-var platforms: Array[Dictionary] = [
-	{"x": 160.0, "y": 460.0, "w": 220.0},   # Left high
-	{"x": 530.0, "y": 380.0, "w": 220.0},   # Center highest
-	{"x": 900.0, "y": 460.0, "w": 220.0},   # Right high
-]
+# Fragment travel band (vertical middle of screen)
+const FRAG_BAND_TOP := 220.0
+const FRAG_BAND_BOT := 500.0
 
-# --- Fragment spawning ---
-const SPAWN_MIN_INTERVAL := 0.5
-const SPAWN_MAX_INTERVAL := 0.8
-const FRAGMENT_FALL_MIN := 120.0
-const FRAGMENT_FALL_MAX := 220.0
-const FRAGMENT_DRIFT_MAX := 30.0
-const FRAGMENT_SIZE := 18.0
-const CATCH_RADIUS := 42.0
+# ── Physics ──────────────────────────────────────────────────────────────────
+const GRAVITY    := 1300.0   # pixels/s²
+const PLAYER_SPD :=  280.0
+const MATCH_TIME :=   35.0
 
-# Fragment types: 0 = cold (blame), 1 = warm (denial)
-# Shapes: 0 = circle, 1 = triangle, 2 = rectangle
-var fragments: Array[Dictionary] = []
-var shatter_particles: Array[Dictionary] = []
-var catch_flashes: Array[Dictionary] = []
-var spawn_timer := 0.0
+# ── Fragment config ───────────────────────────────────────────────────────────
+const FRAG_SPD_BASE  := 230.0
+const FRAG_SPD_VAR   :=  70.0
+const FRAG_SIZE      :=  18.0
+const CATCH_RADIUS   :=  44.0
+const SPAWN_BASE     :=   0.5
+const SPAWN_VAR      :=   0.3
 
-# --- Players ---
-var p1_pos := Vector2(300, GROUND_Y)
-var p1_vel := Vector2.ZERO
-var p1_on_ground := true
+# ── Pit config ────────────────────────────────────────────────────────────────
+const PIT_W_MIN      :=  80.0
+const PIT_W_MAX      := 160.0
+const PIT_SPD        := 235.0
+const PIT_SPAWN_INT  :=   2.0   # base interval between pits per surface
+const PIT_INVINCIBLE :=   1.0   # seconds of immunity after hitting a pit
+
+# ── Player state ──────────────────────────────────────────────────────────────
+var p1_pos    := Vector2(220.0, FLOOR_Y)
+var p1_vel    := Vector2.ZERO
+var p1_grav   := 1.0   # +1 = pulled down (toward floor), -1 = pulled up (toward ceiling)
+var p1_ground := true  # touching their current surface
+var p1_flip_ready := true   # can flip gravity (resets on landing)
+var p1_pit_timer  := 0.0    # pit-hit invincibility countdown
+var p1_score  := 0
 var p1_facing := 1.0
-var p1_score := 0
 
-var p2_pos := Vector2(980, GROUND_Y)
-var p2_vel := Vector2.ZERO
-var p2_on_ground := true
-var p2_facing := -1.0
-var p2_score := 0
+var p2_pos    := Vector2(400.0, FLOOR_Y)
+var p2_vel    := Vector2.ZERO
+var p2_grav   := 1.0
+var p2_ground := true
+var p2_flip_ready := true
+var p2_pit_timer  := 0.0
+var p2_score  := 0
+var p2_facing := 1.0
 
-# --- State ---
+# ── Fragments ─────────────────────────────────────────────────────────────────
+# {pos, vel, type(0=cold/1=warm), shape(0-2), color, size, rotation, rot_speed}
+var fragments: Array[Dictionary] = []
+var frag_spawn_timer := 0.4
+
+# ── Pits ──────────────────────────────────────────────────────────────────────
+# {x, w, surface(FLOOR_Y or CEILING_Y), speed}
+var pits: Array[Dictionary] = []
+var pit_floor_timer := 1.8
+var pit_ceil_timer  := 2.4
+
+# ── Speed ramp ────────────────────────────────────────────────────────────────
+var speed_mult := 1.0
+
+# ── Visual FX ─────────────────────────────────────────────────────────────────
+var shatter_fx: Array[Dictionary] = []
+var catch_fx:   Array[Dictionary] = []
+var pit_fx:     Array[Dictionary] = []
+
+# ── Match state ───────────────────────────────────────────────────────────────
 var match_timer := MATCH_TIME
-var match_over := false
-var blame_won := false
-var phase: int = 0 # 0=playing, 1=result_dialogue, 2=done
+var match_over  := false
+var blame_won   := false
+var phase       := 0   # 0=play, 1=dialogue, 2=advance
 
 
 func _ready() -> void:
@@ -68,9 +94,7 @@ func _ready() -> void:
 	p2_score_label.add_theme_color_override("font_color", GameManager.get_denial_color_light())
 	p1_score_label.text = "BLAME: 0"
 	p2_score_label.text = "DENIAL: 0"
-
 	dialogue.dialogue_finished.connect(_on_dialogue_done)
-	spawn_timer = 0.3
 
 
 func _process(delta: float) -> void:
@@ -78,430 +102,477 @@ func _process(delta: float) -> void:
 		GameManager.advance_phase()
 		return
 	if phase == 1:
-		# Still update shatter particles during dialogue
-		_update_shatter_particles(delta)
-		_update_catch_flashes(delta)
+		_update_fx(delta)
 		queue_redraw()
 		return
-
 	if match_over:
 		return
 
-	# Timer
 	match_timer -= delta
 	timer_label.text = str(ceili(match_timer))
-	if match_timer <= 0:
-		match_timer = 0
+	if match_timer <= 0.0:
+		match_timer = 0.0
 		_end_match()
 		return
 
-	# --- Spawn fragments ---
-	spawn_timer -= delta
-	if spawn_timer <= 0:
-		spawn_timer = randf_range(SPAWN_MIN_INTERVAL, SPAWN_MAX_INTERVAL)
-		_spawn_fragment()
+	speed_mult = 1.0 + (1.0 - match_timer / MATCH_TIME) * 0.9
 
-	# --- P1 (Blame) movement ---
-	var p1_dir: float = 0.0
-	if Input.is_action_pressed("p1_left"): p1_dir -= 1.0
-	if Input.is_action_pressed("p1_right"): p1_dir += 1.0
-	if p1_dir != 0.0: p1_facing = p1_dir
-	p1_vel.x = lerpf(p1_vel.x, p1_dir * PLAYER_SPEED, 12.0 * delta)
-
-	if p1_on_ground and Input.is_action_just_pressed("p1_up"):
-		p1_vel.y = JUMP_FORCE
-		p1_on_ground = false
-
-	p1_vel.y += GRAVITY * delta
-	p1_pos += p1_vel * delta
-	_resolve_player_collision_p1()
-
-	# --- P2 (Denial) movement ---
-	var p2_dir: float = 0.0
-	if Input.is_action_pressed("p2_left"): p2_dir -= 1.0
-	if Input.is_action_pressed("p2_right"): p2_dir += 1.0
-	if p2_dir != 0.0: p2_facing = p2_dir
-	p2_vel.x = lerpf(p2_vel.x, p2_dir * PLAYER_SPEED, 12.0 * delta)
-
-	if p2_on_ground and Input.is_action_just_pressed("p2_up"):
-		p2_vel.y = JUMP_FORCE
-		p2_on_ground = false
-
-	p2_vel.y += GRAVITY * delta
-	p2_pos += p2_vel * delta
-	_resolve_player_collision_p2()
-
-	# --- Update fragments ---
+	_handle_input(delta)
+	_physics(delta)
+	_spawn_logic(delta)
 	_update_fragments(delta)
+	_update_pits(delta)
+	_check_catches()
+	_check_pit_falls()
+	_update_fx(delta)
 
-	# --- Check catches ---
-	if Input.is_action_just_pressed("p1_attack"):
-		_try_catch(1)
-	if Input.is_action_just_pressed("p2_attack"):
-		_try_catch(2)
+	p1_pit_timer = maxf(0.0, p1_pit_timer - delta)
+	p2_pit_timer = maxf(0.0, p2_pit_timer - delta)
 
-	# --- Update particles ---
-	_update_shatter_particles(delta)
-	_update_catch_flashes(delta)
-
-	# --- Update scores display ---
-	p1_score_label.text = "BLAME: " + str(p1_score)
+	p1_score_label.text = "BLAME: "  + str(p1_score)
 	p2_score_label.text = "DENIAL: " + str(p2_score)
 
-	# --- Update hue ---
-	var total: float = float(absf(float(p1_score)) + absf(float(p2_score)) + 1.0)
-	var target_hue: float = 0.5 + float(p2_score - p1_score) / (total * 2.0)
-	target_hue = clampf(target_hue, 0.0, 1.0)
-	GameManager.set_hue(lerpf(GameManager.hue_value, target_hue, 2.0 * delta))
+	var total := float(abs(p1_score) + abs(p2_score) + 1)
+	var h := clampf(0.5 + float(p2_score - p1_score) / (total * 2.0), 0.0, 1.0)
+	GameManager.set_hue(lerpf(GameManager.hue_value, h, 2.0 * delta))
 
 	queue_redraw()
 
 
-# --- Platform collision for P1 ---
-func _resolve_player_collision_p1() -> void:
-	p1_on_ground = false
-	# Ground
-	if p1_pos.y >= GROUND_Y:
-		p1_pos.y = GROUND_Y
-		p1_vel.y = 0.0
-		p1_on_ground = true
-	# Platforms (only when falling)
-	if p1_vel.y >= 0:
-		for plat: Dictionary in platforms:
-			var px: float = plat.x
-			var py: float = plat.y
-			var pw: float = plat.w
-			if p1_pos.x >= px and p1_pos.x <= px + pw:
-				if p1_pos.y >= py and p1_pos.y <= py + 20:
-					p1_pos.y = py
-					p1_vel.y = 0.0
-					p1_on_ground = true
-	p1_pos.y = maxf(p1_pos.y, CEILING)
-	p1_pos.x = clampf(p1_pos.x, LEFT_WALL, RIGHT_WALL)
+# ── Input ─────────────────────────────────────────────────────────────────────
+
+func _handle_input(delta: float) -> void:
+	# P1 (Blame) — left/right + jump to flip gravity
+	var d1 := 0.0
+	if Input.is_action_pressed("p1_left"):  d1 -= 1.0
+	if Input.is_action_pressed("p1_right"): d1 += 1.0
+	if d1 != 0.0: p1_facing = d1
+	p1_vel.x = lerpf(p1_vel.x, d1 * PLAYER_SPD, 10.0 * delta)
+
+	if p1_flip_ready and Input.is_action_just_pressed("p1_up"):
+		p1_grav       *= -1.0   # flip gravity direction
+		p1_ground      = false
+		p1_flip_ready  = false  # must land before flipping again
+
+	# P2 (Denial)
+	var d2 := 0.0
+	if Input.is_action_pressed("p2_left"):  d2 -= 1.0
+	if Input.is_action_pressed("p2_right"): d2 += 1.0
+	if d2 != 0.0: p2_facing = d2
+	p2_vel.x = lerpf(p2_vel.x, d2 * PLAYER_SPD, 10.0 * delta)
+
+	if p2_flip_ready and Input.is_action_just_pressed("p2_up"):
+		p2_grav       *= -1.0
+		p2_ground      = false
+		p2_flip_ready  = false
 
 
-# --- Platform collision for P2 ---
-func _resolve_player_collision_p2() -> void:
-	p2_on_ground = false
-	# Ground
-	if p2_pos.y >= GROUND_Y:
-		p2_pos.y = GROUND_Y
-		p2_vel.y = 0.0
-		p2_on_ground = true
-	# Platforms (only when falling)
-	if p2_vel.y >= 0:
-		for plat: Dictionary in platforms:
-			var px: float = plat.x
-			var py: float = plat.y
-			var pw: float = plat.w
-			if p2_pos.x >= px and p2_pos.x <= px + pw:
-				if p2_pos.y >= py and p2_pos.y <= py + 20:
-					p2_pos.y = py
-					p2_vel.y = 0.0
-					p2_on_ground = true
-	p2_pos.y = maxf(p2_pos.y, CEILING)
-	p2_pos.x = clampf(p2_pos.x, LEFT_WALL, RIGHT_WALL)
+# ── Physics ───────────────────────────────────────────────────────────────────
+
+func _physics(delta: float) -> void:
+	# P1
+	p1_vel.y  += GRAVITY * p1_grav * delta
+	p1_pos    += p1_vel * delta
+	p1_pos.x   = clampf(p1_pos.x, 16.0, SCREEN_W - 16.0)
+	p1_ground  = false
+
+	if p1_grav > 0.0 and p1_pos.y >= FLOOR_Y:
+		p1_pos.y = FLOOR_Y; p1_vel.y = 0.0; p1_ground = true; p1_flip_ready = true
+	elif p1_grav < 0.0 and p1_pos.y <= CEILING_Y:
+		p1_pos.y = CEILING_Y; p1_vel.y = 0.0; p1_ground = true; p1_flip_ready = true
+
+	# P2
+	p2_vel.y  += GRAVITY * p2_grav * delta
+	p2_pos    += p2_vel * delta
+	p2_pos.x   = clampf(p2_pos.x, 16.0, SCREEN_W - 16.0)
+	p2_ground  = false
+
+	if p2_grav > 0.0 and p2_pos.y >= FLOOR_Y:
+		p2_pos.y = FLOOR_Y; p2_vel.y = 0.0; p2_ground = true; p2_flip_ready = true
+	elif p2_grav < 0.0 and p2_pos.y <= CEILING_Y:
+		p2_pos.y = CEILING_Y; p2_vel.y = 0.0; p2_ground = true; p2_flip_ready = true
 
 
-# --- Fragment spawning ---
+# ── Spawning ──────────────────────────────────────────────────────────────────
+
+func _spawn_logic(delta: float) -> void:
+	frag_spawn_timer -= delta
+	if frag_spawn_timer <= 0.0:
+		frag_spawn_timer = randf_range(SPAWN_BASE - SPAWN_VAR, SPAWN_BASE + SPAWN_VAR) / speed_mult
+		_spawn_fragment()
+
+	pit_floor_timer -= delta
+	if pit_floor_timer <= 0.0:
+		pit_floor_timer = randf_range(PIT_SPAWN_INT * 0.7, PIT_SPAWN_INT * 1.5)
+		_spawn_pit(FLOOR_Y)
+
+	pit_ceil_timer -= delta
+	if pit_ceil_timer <= 0.0:
+		pit_ceil_timer = randf_range(PIT_SPAWN_INT * 0.7, PIT_SPAWN_INT * 1.5)
+		_spawn_pit(CEILING_Y)
+
+
 func _spawn_fragment() -> void:
-	var frag_type: int = 0 if randf() < 0.5 else 1 # 0=cold/blame, 1=warm/denial
-	var shape: int = randi() % 3 # 0=circle, 1=triangle, 2=rectangle
-	var x_pos: float = randf_range(80.0, 1200.0)
-	var fall_speed: float = randf_range(FRAGMENT_FALL_MIN, FRAGMENT_FALL_MAX)
-	var drift: float = randf_range(-FRAGMENT_DRIFT_MAX, FRAGMENT_DRIFT_MAX)
-
+	var ftype := 0 if randf() < 0.5 else 1
+	var shape := randi() % 3
+	var y_pos := randf_range(FRAG_BAND_TOP + 12.0, FRAG_BAND_BOT - 12.0)
+	var spd   := (FRAG_SPD_BASE + randf_range(-FRAG_SPD_VAR, FRAG_SPD_VAR)) * speed_mult
+	var sz    := randf_range(FRAG_SIZE * 0.8, FRAG_SIZE * 1.3)
 	var col: Color
-	if frag_type == 0:
-		# Cold/dark: blue-purple tints
-		col = Color(
-			randf_range(0.15, 0.35),
-			randf_range(0.18, 0.35),
-			randf_range(0.5, 0.8),
-			0.9
-		)
+	if ftype == 0:
+		# Cold / blame: blue-purple
+		col = Color(randf_range(0.15, 0.35), randf_range(0.18, 0.35), randf_range(0.5, 0.8), 0.9)
 	else:
-		# Warm/bright: orange tints
-		col = Color(
-			randf_range(0.8, 0.98),
-			randf_range(0.4, 0.65),
-			randf_range(0.15, 0.35),
-			0.9
-		)
-
-	var frag_size: float = randf_range(FRAGMENT_SIZE * 0.8, FRAGMENT_SIZE * 1.3)
-
+		# Warm / denial: orange
+		col = Color(randf_range(0.8, 0.98), randf_range(0.4, 0.65), randf_range(0.15, 0.35), 0.9)
 	fragments.append({
-		"pos": Vector2(x_pos, -30.0),
-		"vel": Vector2(drift, fall_speed),
-		"type": frag_type,
-		"shape": shape,
-		"color": col,
-		"size": frag_size,
-		"rotation": randf_range(0, TAU),
-		"rot_speed": randf_range(-2.0, 2.0),
+		"pos": Vector2(SCREEN_W + 30.0, y_pos),
+		"vel": Vector2(-spd, 0.0),
+		"type": ftype, "shape": shape, "color": col, "size": sz,
+		"rotation": randf_range(0.0, TAU), "rot_speed": randf_range(-2.5, 2.5),
 	})
 
 
-# --- Fragment updating ---
+func _spawn_pit(surface: float) -> void:
+	var w := randf_range(PIT_W_MIN, PIT_W_MAX)
+	pits.append({
+		"x": SCREEN_W + 10.0,
+		"w": w,
+		"surface": surface,
+		"speed": PIT_SPD * speed_mult,
+	})
+
+
+# ── Update objects ────────────────────────────────────────────────────────────
+
 func _update_fragments(delta: float) -> void:
 	for i in range(fragments.size() - 1, -1, -1):
-		var frag: Dictionary = fragments[i]
-		frag.pos = (frag.pos as Vector2) + (frag.vel as Vector2) * delta
-		frag.rotation = (frag.rotation as float) + (frag.rot_speed as float) * delta
-		# Add slight horizontal wave
-		frag.vel = Vector2((frag.vel as Vector2).x, (frag.vel as Vector2).y)
-
-		var frag_pos: Vector2 = frag.pos
-		# Hit ground — shatter and remove
-		if frag_pos.y > GROUND_Y + 10:
-			_spawn_shatter(frag_pos, frag.color as Color, false)
+		var f: Dictionary = fragments[i]
+		f.pos      = (f.pos as Vector2) + (f.vel as Vector2) * delta
+		f.rotation = (f.rotation as float) + (f.rot_speed as float) * delta
+		if (f.pos as Vector2).x < -50.0:
 			fragments.remove_at(i)
 
 
-# --- Catching ---
-func _try_catch(player_id: int) -> void:
-	var player_pos: Vector2 = p1_pos if player_id == 1 else p2_pos
-	# Check body area (slightly above the pos since pos is at feet)
-	var catch_center := Vector2(player_pos.x, player_pos.y - 35.0)
+func _update_pits(delta: float) -> void:
+	for i in range(pits.size() - 1, -1, -1):
+		var p: Dictionary = pits[i]
+		p.x = (p.x as float) - (p.speed as float) * delta
+		if (p.x as float) + (p.w as float) < -10.0:
+			pits.remove_at(i)
 
-	var best_idx: int = -1
-	var best_dist: float = CATCH_RADIUS + 1.0
 
-	for i in range(fragments.size()):
+# ── Catch detection ───────────────────────────────────────────────────────────
+
+func _check_catches() -> void:
+	for i in range(fragments.size() - 1, -1, -1):
+		if i >= fragments.size():
+			break
 		var frag: Dictionary = fragments[i]
-		var frag_pos: Vector2 = frag.pos
-		var dist: float = catch_center.distance_to(frag_pos)
-		if dist < CATCH_RADIUS and dist < best_dist:
-			best_dist = dist
-			best_idx = i
+		var fp:    Vector2   = frag.pos
+		var ftype: int       = frag.type
 
-	if best_idx < 0:
-		return
+		# Body centre: midpoint between surface and opposite end of character
+		# For floor player: centre is PLAYER_H/2 above feet → pos.y - PLAYER_H*0.5
+		# For ceiling player: centre is PLAYER_H/2 below ceiling → pos.y + PLAYER_H*0.5
+		# Unified formula: pos.y - grav * PLAYER_H * 0.5
+		var p1c := Vector2(p1_pos.x, p1_pos.y - p1_grav * PLAYER_H * 0.5)
+		var p2c := Vector2(p2_pos.x, p2_pos.y - p2_grav * PLAYER_H * 0.5)
 
-	var caught_frag: Dictionary = fragments[best_idx]
-	var frag_type: int = caught_frag.type
-	var frag_pos: Vector2 = caught_frag.pos
-	var frag_col: Color = caught_frag.color
+		var d1 := p1c.distance_to(fp)
+		var d2 := p2c.distance_to(fp)
 
-	# Determine if correct match
-	# Player 1 (Blame) should catch type 0 (cold)
-	# Player 2 (Denial) should catch type 1 (warm)
-	var correct: bool = (player_id == 1 and frag_type == 0) or (player_id == 2 and frag_type == 1)
+		var caught_by := 0
+		if d1 < CATCH_RADIUS and (d1 <= d2 or d2 >= CATCH_RADIUS):
+			caught_by = 1
+		elif d2 < CATCH_RADIUS:
+			caught_by = 2
+		if caught_by == 0:
+			continue
 
-	if correct:
-		# +1 point, absorb flash
-		if player_id == 1:
-			p1_score += 1
+		# Blame (P1) catches cold/type-0; Denial (P2) catches warm/type-1
+		var correct := (caught_by == 1 and ftype == 0) or (caught_by == 2 and ftype == 1)
+		var cpos    := p1_pos if caught_by == 1 else p2_pos
+
+		if correct:
+			if caught_by == 1: p1_score += 1
+			else:              p2_score += 1
+			_fx_catch(cpos, frag.color as Color, true)
 		else:
-			p2_score += 1
-		_spawn_catch_flash(player_pos, frag_col, true)
-	else:
-		# -1 point, shatter effect
-		if player_id == 1:
-			p1_score -= 1
-		else:
-			p2_score -= 1
-		_spawn_shatter(frag_pos, frag_col, true)
-		_spawn_catch_flash(player_pos, Color(1.0, 0.2, 0.2, 0.8), false)
+			if caught_by == 1: p1_score -= 1
+			else:              p2_score -= 1
+			_fx_shatter(fp, frag.color as Color)
+			_fx_catch(cpos, Color(1.0, 0.2, 0.2, 0.8), false)
 
-	fragments.remove_at(best_idx)
+		fragments.remove_at(i)
 
 
-# --- Shatter particles ---
-func _spawn_shatter(pos: Vector2, col: Color, is_wrong_catch: bool) -> void:
-	var count: int = 8 if is_wrong_catch else 5
-	for i in range(count):
-		var angle: float = randf_range(0, TAU)
-		var speed: float = randf_range(60.0, 180.0)
-		var vel := Vector2(cos(angle) * speed, sin(angle) * speed - 50.0)
-		shatter_particles.append({
-			"pos": Vector2(pos.x, pos.y),
-			"vel": vel,
-			"alpha": 1.0,
-			"color": col,
-			"size": randf_range(2.0, 6.0),
-			"shape": randi() % 3,
+# ── Pit collision ─────────────────────────────────────────────────────────────
+
+func _check_pit_falls() -> void:
+	for pit in pits:
+		var px: float = pit.x
+		var pw: float = pit.w
+		var ps: float = pit.surface
+
+		# P1 — only check when grounded on the matching surface and not invincible
+		if p1_ground and p1_pit_timer <= 0.0:
+			var p1_surf := FLOOR_Y if p1_grav > 0.0 else CEILING_Y
+			if absf(p1_surf - ps) < 2.0 and p1_pos.x >= px and p1_pos.x <= px + pw:
+				p1_score     -= 1
+				p1_pit_timer  = PIT_INVINCIBLE
+				p1_ground     = false
+				p1_flip_ready = true      # allow immediate re-flip to escape
+				p1_grav      *= -1.0      # gravity reverses — player drifts toward opposite surface
+				_fx_pit(p1_pos)
+
+		# P2
+		if p2_ground and p2_pit_timer <= 0.0:
+			var p2_surf := FLOOR_Y if p2_grav > 0.0 else CEILING_Y
+			if absf(p2_surf - ps) < 2.0 and p2_pos.x >= px and p2_pos.x <= px + pw:
+				p2_score     -= 1
+				p2_pit_timer  = PIT_INVINCIBLE
+				p2_ground     = false
+				p2_flip_ready = true
+				p2_grav      *= -1.0
+				_fx_pit(p2_pos)
+
+
+# ── Visual FX helpers ─────────────────────────────────────────────────────────
+
+func _fx_shatter(pos: Vector2, col: Color) -> void:
+	for _i in range(8):
+		var angle := randf_range(0.0, TAU)
+		var spd   := randf_range(60.0, 190.0)
+		shatter_fx.append({
+			"pos":   Vector2(pos.x, pos.y),
+			"vel":   Vector2(cos(angle) * spd, sin(angle) * spd),
+			"alpha": 1.0, "color": col,
+			"size":  randf_range(2.0, 6.0), "shape": randi() % 3,
 		})
 
 
-func _spawn_catch_flash(pos: Vector2, col: Color, success: bool) -> void:
-	catch_flashes.append({
-		"pos": Vector2(pos.x, pos.y - 30.0),
-		"alpha": 1.0,
-		"color": col,
-		"radius": 10.0 if success else 15.0,
+func _fx_catch(pos: Vector2, col: Color, success: bool) -> void:
+	catch_fx.append({
+		"pos":     Vector2(pos.x, pos.y - 20.0),
+		"alpha":   1.0, "color": col,
+		"radius":  8.0 if success else 12.0,
 		"success": success,
 	})
 
 
-func _update_shatter_particles(delta: float) -> void:
-	for i in range(shatter_particles.size() - 1, -1, -1):
-		var p: Dictionary = shatter_particles[i]
-		p.vel = (p.vel as Vector2) + Vector2(0, 300.0) * delta
-		p.pos = (p.pos as Vector2) + (p.vel as Vector2) * delta
-		p.alpha = (p.alpha as float) - delta * 1.5
-		if (p.alpha as float) <= 0:
-			shatter_particles.remove_at(i)
+func _fx_pit(pos: Vector2) -> void:
+	pit_fx.append({"pos": Vector2(pos.x, pos.y), "alpha": 1.0, "radius": 6.0})
 
 
-func _update_catch_flashes(delta: float) -> void:
-	for i in range(catch_flashes.size() - 1, -1, -1):
-		var f: Dictionary = catch_flashes[i]
-		f.alpha = (f.alpha as float) - delta * 3.0
+func _update_fx(delta: float) -> void:
+	for i in range(shatter_fx.size() - 1, -1, -1):
+		var p: Dictionary = shatter_fx[i]
+		p.vel   = (p.vel as Vector2)   + Vector2(0.0, 280.0) * delta
+		p.pos   = (p.pos as Vector2)   + (p.vel as Vector2) * delta
+		p.alpha = (p.alpha as float)   - delta * 1.5
+		if (p.alpha as float) <= 0.0: shatter_fx.remove_at(i)
+
+	for i in range(catch_fx.size() - 1, -1, -1):
+		var f: Dictionary = catch_fx[i]
+		f.alpha  = (f.alpha  as float) - delta * 3.0
 		f.radius = (f.radius as float) + delta * 80.0
-		if (f.alpha as float) <= 0:
-			catch_flashes.remove_at(i)
+		if (f.alpha as float) <= 0.0: catch_fx.remove_at(i)
+
+	for i in range(pit_fx.size() - 1, -1, -1):
+		var f: Dictionary = pit_fx[i]
+		f.alpha  = (f.alpha  as float) - delta * 2.5
+		f.radius = (f.radius as float) + delta * 110.0
+		if (f.alpha as float) <= 0.0: pit_fx.remove_at(i)
 
 
-# --- Drawing ---
+# ── Drawing ───────────────────────────────────────────────────────────────────
+
 func _draw() -> void:
-	# --- Platforms ---
-	for plat: Dictionary in platforms:
-		var px: float = plat.x
-		var py: float = plat.y
-		var pw: float = plat.w
-		# Platform body
-		draw_rect(Rect2(px, py, pw, 14), Color(0.22, 0.22, 0.28, 0.85))
-		# Top edge highlight
-		draw_line(Vector2(px, py), Vector2(px + pw, py), Color(0.4, 0.4, 0.5, 0.6), 2.0)
-		# Bottom shadow
-		draw_rect(Rect2(px, py + 14, pw, 4), Color(0.12, 0.12, 0.16, 0.6))
+	# Background handled by global ShardBackground autoload
+	_draw_surfaces()
+	_draw_middle_band()
+	_draw_fragments()
+	_draw_shatter()
+	_draw_catch_fx()
+	_draw_pit_fx()
+	_draw_blame(p1_pos, p1_facing, p1_grav)
+	_draw_denial(p2_pos, p2_facing, p2_grav)
 
-	# --- Ground ---
-	draw_rect(Rect2(0, GROUND_Y, 1280, 80), Color(0.15, 0.15, 0.2, 0.9))
-	draw_line(Vector2(0, GROUND_Y), Vector2(1280, GROUND_Y), Color(0.35, 0.35, 0.42, 0.6), 2.0)
 
-	# --- Fragments ---
-	for frag: Dictionary in fragments:
-		_draw_fragment(frag)
+func _draw_surfaces() -> void:
+	var surf_col := Color(0.15, 0.15, 0.2, 0.95)
+	var edge_col := Color(0.35, 0.35, 0.45, 0.7)
+	var pit_col  := Color(0.04, 0.04, 0.08, 1.0)
+	var pit_glow := Color(0.75, 0.1, 0.1, 0.4)
 
-	# --- Shatter particles ---
-	for p: Dictionary in shatter_particles:
-		var col: Color = p.color
-		col.a = p.alpha as float
-		var sz: float = p.size
-		var pp: Vector2 = p.pos
-		var shp: int = p.shape
-		if shp == 0:
-			draw_circle(pp, sz, col)
-		elif shp == 1:
-			var pts := PackedVector2Array([
-				pp + Vector2(0, -sz),
-				pp + Vector2(-sz, sz),
-				pp + Vector2(sz, sz),
-			])
-			draw_colored_polygon(pts, col)
+	# Solid floor and ceiling bars
+	draw_rect(Rect2(0.0, FLOOR_Y,   SCREEN_W, FLOOR_THICK), surf_col)
+	draw_rect(Rect2(0.0, 0.0,       SCREEN_W, CEIL_THICK),  surf_col)
+	draw_line(Vector2(0.0, FLOOR_Y),   Vector2(SCREEN_W, FLOOR_Y),   edge_col, 2.0)
+	draw_line(Vector2(0.0, CEILING_Y), Vector2(SCREEN_W, CEILING_Y), edge_col, 2.0)
+
+	# Draw pits as void cut-outs with a red danger glow at the lip
+	for pit in pits:
+		var px: float = pit.x
+		var pw: float = pit.w
+		var ps: float = pit.surface
+		if ps == FLOOR_Y:
+			draw_rect(Rect2(px, FLOOR_Y,   pw, FLOOR_THICK), pit_col)
+			draw_rect(Rect2(px, FLOOR_Y,   pw, 3.0),         pit_glow)
 		else:
-			draw_rect(Rect2(pp.x - sz, pp.y - sz, sz * 2, sz * 2), col)
+			draw_rect(Rect2(px, 0.0,              pw, CEIL_THICK),  pit_col)
+			draw_rect(Rect2(px, CEILING_Y - 3.0,  pw, 3.0),         pit_glow)
 
-	# --- Catch flashes ---
-	for f: Dictionary in catch_flashes:
-		var col: Color = f.color
-		col.a = (f.alpha as float) * 0.5
-		draw_circle(f.pos as Vector2, f.radius as float, col)
-		if f.success:
-			# Inner bright ring
-			col.a = (f.alpha as float) * 0.8
-			draw_arc(f.pos as Vector2, (f.radius as float) * 0.7, 0, TAU, 24, col, 2.0)
 
-	# --- Characters ---
-	_draw_blame(p1_pos, p1_facing)
-	_draw_denial(p2_pos, p2_facing)
+func _draw_middle_band() -> void:
+	# Faint highlight so players know the catch zone
+	draw_rect(
+		Rect2(0.0, FRAG_BAND_TOP, SCREEN_W, FRAG_BAND_BOT - FRAG_BAND_TOP),
+		Color(1.0, 1.0, 1.0, 0.03)
+	)
+	var guide := Color(0.3, 0.3, 0.42, 0.22)
+	draw_line(Vector2(0.0, FRAG_BAND_TOP), Vector2(SCREEN_W, FRAG_BAND_TOP), guide, 1.0)
+	draw_line(Vector2(0.0, FRAG_BAND_BOT), Vector2(SCREEN_W, FRAG_BAND_BOT), guide, 1.0)
+
+
+func _draw_fragments() -> void:
+	for frag in fragments:
+		_draw_fragment(frag)
 
 
 func _draw_fragment(frag: Dictionary) -> void:
-	var pos: Vector2 = frag.pos
-	var col: Color = frag.color
-	var sz: float = frag.size
-	var shape: int = frag.shape
-	var rot: float = frag.rotation
+	var pos:   Vector2 = frag.pos
+	var col:   Color   = frag.color
+	var sz:    float   = frag.size
+	var shape: int     = frag.shape
+	var rot:   float   = frag.rotation
 
-	# Glow effect underneath
-	var glow_col := Color(col.r, col.g, col.b, 0.2)
-	draw_circle(pos, sz + 4.0, glow_col)
+	draw_circle(pos, sz + 5.0, Color(col.r, col.g, col.b, 0.18))  # soft glow
 
 	if shape == 0:
-		# Circle
 		draw_circle(pos, sz, col)
-		# Inner highlight
 		draw_circle(pos + Vector2(-sz * 0.2, -sz * 0.2), sz * 0.4, Color(1, 1, 1, 0.15))
 	elif shape == 1:
-		# Triangle (rotated)
 		var pts := PackedVector2Array()
 		for i in range(3):
-			var angle: float = rot + float(i) * TAU / 3.0
-			pts.append(pos + Vector2(cos(angle), sin(angle)) * sz)
+			var a := rot + float(i) * TAU / 3.0
+			pts.append(pos + Vector2(cos(a), sin(a)) * sz)
 		draw_colored_polygon(pts, col)
-		# Edge highlight
 		for i in range(3):
 			draw_line(pts[i], pts[(i + 1) % 3], Color(1, 1, 1, 0.12), 1.0)
 	else:
-		# Rectangle (rotated)
 		var pts := PackedVector2Array()
 		for i in range(4):
-			var angle: float = rot + float(i) * TAU / 4.0 + TAU / 8.0
-			pts.append(pos + Vector2(cos(angle), sin(angle)) * sz)
+			var a := rot + float(i) * TAU / 4.0 + TAU / 8.0
+			pts.append(pos + Vector2(cos(a), sin(a)) * sz)
 		draw_colored_polygon(pts, col)
 		for i in range(4):
 			draw_line(pts[i], pts[(i + 1) % 4], Color(1, 1, 1, 0.1), 1.0)
 
 
-func _draw_blame(pos: Vector2, facing: float) -> void:
-	var c := GameManager.get_blame_color()
+func _draw_shatter() -> void:
+	for p in shatter_fx:
+		var col: Color  = p.color
+		col.a = p.alpha as float
+		var sz: float   = p.size
+		var pp: Vector2 = p.pos
+		match (p.shape as int):
+			0: draw_circle(pp, sz, col)
+			1:
+				draw_colored_polygon(PackedVector2Array([
+					pp + Vector2(0, -sz), pp + Vector2(-sz, sz), pp + Vector2(sz, sz)
+				]), col)
+			_: draw_rect(Rect2(pp.x - sz, pp.y - sz, sz * 2.0, sz * 2.0), col)
+
+
+func _draw_catch_fx() -> void:
+	for f in catch_fx:
+		var col: Color = f.color
+		col.a = (f.alpha as float) * 0.5
+		draw_circle(f.pos as Vector2, f.radius as float, col)
+		if f.success:
+			col.a = (f.alpha as float) * 0.8
+			draw_arc(f.pos as Vector2, (f.radius as float) * 0.7, 0.0, TAU, 24, col, 2.0)
+
+
+func _draw_pit_fx() -> void:
+	for f in pit_fx:
+		draw_circle(f.pos as Vector2, f.radius as float,
+			Color(1.0, 0.3, 0.3, (f.alpha as float) * 0.55))
+
+
+# ── Character drawing ─────────────────────────────────────────────────────────
+# 'd' = drawing direction from surface: -1 when on floor (draw upward), +1 when on ceiling (draw downward)
+# All y-offsets use: surface_y + d * offset, with rects normalised so height is always positive.
+
+func _draw_blame(pos: Vector2, facing: float, grav: float) -> void:
+	var d  := -1.0 if grav > 0.0 else 1.0   # floor: d=-1 (up), ceiling: d=+1 (down)
+	var c  := GameManager.get_blame_color()
 	var cl := GameManager.get_blame_color_light()
 
-	# Legs
-	draw_rect(Rect2(pos.x - 13, pos.y - 24, 8, 24), c)
-	draw_rect(Rect2(pos.x + 5, pos.y - 24, 8, 24), c)
-	# Body
-	draw_rect(Rect2(pos.x - 14, pos.y - 56, 28, 34), c)
-	draw_rect(Rect2(pos.x - 9, pos.y - 50, 18, 22), Color(cl.r, cl.g, cl.b, 0.25))
-	# Head
-	draw_rect(Rect2(pos.x - 11, pos.y - 74, 22, 20), c)
+	# Helper: rect from base going in direction d
+	# d<0 → top_y = base + d*h = base - h, height = h
+	# d>0 → top_y = base,               height = h
+	var by := pos.y  # base y (surface attachment point)
+
+	# Legs  (0 → 24 from base)
+	_drect(pos.x - 13, by, 8,  24, d, c)
+	_drect(pos.x + 5,  by, 8,  24, d, c)
+	# Body  (24 → 58 from base)
+	_drect(pos.x - 14, by + d * 24, 28, 34, d, c)
+	_drect(pos.x - 9,  by + d * 30, 18, 22, d, Color(cl.r, cl.g, cl.b, 0.25))
+	# Head  (58 → 76 from base)
+	_drect(pos.x - 11, by + d * 58, 22, 18, d, c)
 	# Eyes
-	var eye_x: float = pos.x + facing * 3
-	draw_rect(Rect2(eye_x - 6, pos.y - 69, 4, 4), Color(0.7, 0.75, 0.9, 0.8))
-	draw_rect(Rect2(eye_x + 2, pos.y - 69, 4, 4), Color(0.7, 0.75, 0.9, 0.8))
-	# Arms (reaching up to catch)
-	draw_rect(Rect2(pos.x - 20, pos.y - 52, 8, 6), Color(c.r, c.g, c.b, 0.7))
-	draw_rect(Rect2(pos.x + 12, pos.y - 52, 8, 6), Color(c.r, c.g, c.b, 0.7))
+	var ey := by + d * 62.0
+	var ex := pos.x + facing * 3.0
+	_drect(ex - 6, ey, 4, 4, d, Color(0.7, 0.75, 0.9, 0.8))
+	_drect(ex + 2, ey, 4, 4, d, Color(0.7, 0.75, 0.9, 0.8))
+	# Arms
+	_drect(pos.x - 22, by + d * 32, 8, 6, d, Color(c.r, c.g, c.b, 0.7))
+	_drect(pos.x + 14, by + d * 32, 8, 6, d, Color(c.r, c.g, c.b, 0.7))
 
 
-func _draw_denial(pos: Vector2, facing: float) -> void:
-	var c := GameManager.get_denial_color()
+func _draw_denial(pos: Vector2, facing: float, grav: float) -> void:
+	var d  := -1.0 if grav > 0.0 else 1.0
+	var c  := GameManager.get_denial_color()
 	var cl := GameManager.get_denial_color_light()
+	var by := pos.y
 
 	# Legs
-	draw_circle(Vector2(pos.x - 7, pos.y - 8), 6, c)
-	draw_circle(Vector2(pos.x + 7, pos.y - 8), 6, c)
-	draw_circle(Vector2(pos.x - 7, pos.y - 18), 5, c)
-	draw_circle(Vector2(pos.x + 7, pos.y - 18), 5, c)
+	draw_circle(Vector2(pos.x - 7, by + d * 9),  6, c)
+	draw_circle(Vector2(pos.x + 7, by + d * 9),  6, c)
+	draw_circle(Vector2(pos.x - 7, by + d * 20), 5, c)
+	draw_circle(Vector2(pos.x + 7, by + d * 20), 5, c)
 	# Body
-	draw_circle(Vector2(pos.x, pos.y - 40), 18, c)
-	draw_circle(Vector2(pos.x, pos.y - 40), 11, Color(cl.r, cl.g, cl.b, 0.25))
+	draw_circle(Vector2(pos.x, by + d * 40), 18, c)
+	draw_circle(Vector2(pos.x, by + d * 40), 11, Color(cl.r, cl.g, cl.b, 0.25))
 	# Head
-	draw_circle(Vector2(pos.x, pos.y - 65), 13, c)
+	draw_circle(Vector2(pos.x, by + d * 64), 13, c)
 	# Eyes
-	var eye_x: float = pos.x + facing * 4
-	draw_circle(Vector2(eye_x - 4, pos.y - 67), 2.5, Color(0.95, 0.85, 0.7, 0.8))
-	draw_circle(Vector2(eye_x + 4, pos.y - 67), 2.5, Color(0.95, 0.85, 0.7, 0.8))
-	# Arms (reaching up)
-	draw_circle(Vector2(pos.x - 18, pos.y - 44), 5, Color(c.r, c.g, c.b, 0.7))
-	draw_circle(Vector2(pos.x + 18, pos.y - 44), 5, Color(c.r, c.g, c.b, 0.7))
+	var ey := by + d * 66.0
+	var ex := pos.x + facing * 4.0
+	draw_circle(Vector2(ex - 4, ey), 2.5, Color(0.95, 0.85, 0.7, 0.8))
+	draw_circle(Vector2(ex + 4, ey), 2.5, Color(0.95, 0.85, 0.7, 0.8))
+	# Arms
+	draw_circle(Vector2(pos.x - 20, by + d * 44), 5, Color(c.r, c.g, c.b, 0.7))
+	draw_circle(Vector2(pos.x + 20, by + d * 44), 5, Color(c.r, c.g, c.b, 0.7))
 
 
-# --- End match ---
+## Draw a rect whose top-left is determined by direction d.
+## d < 0 (upward): rect sits ABOVE anchor_y  → top = anchor_y - h
+## d > 0 (downward): rect sits BELOW anchor_y → top = anchor_y
+func _drect(x: float, anchor_y: float, w: float, h: float, d: float, col: Color) -> void:
+	var top_y := anchor_y - h if d < 0.0 else anchor_y
+	draw_rect(Rect2(x, top_y, w, h), col)
+
+
+# ── End match ─────────────────────────────────────────────────────────────────
+
 func _end_match() -> void:
 	match_over = true
-
-	if p1_score > p2_score:
-		blame_won = true
-	elif p2_score > p1_score:
-		blame_won = false
-	else:
-		blame_won = randf() > 0.5
-
+	blame_won  = p1_score > p2_score or (p1_score == p2_score and randf() > 0.5)
 	GameManager.register_competitive_win(blame_won)
 	phase = 1
 	_show_result_dialogue()
@@ -512,7 +583,6 @@ func _show_result_dialogue() -> void:
 	var lines: Array[Dictionary] = []
 
 	if frag_id == GameManager.BAD_2:
-		# The accident — heavy silence first
 		lines = [
 			{"speaker": "", "text": "The fragments fall like rain... like that night.", "color": Color(0.5, 0.5, 0.55)},
 			{"speaker": "", "text": "...", "color": Color(0.4, 0.4, 0.45)},
@@ -526,12 +596,11 @@ func _show_result_dialogue() -> void:
 			{"speaker": "", "text": "The memories scatter... but some pieces cling to us.", "color": Color(0.6, 0.6, 0.65)},
 		]
 
-	# Realisation dialogue — they are the same person
 	lines.append_array([
-		{"speaker": "Denial", "text": "Wait... I feel what you feel.", "color": GameManager.get_denial_color_light()},
-		{"speaker": "Blame", "text": "Because we ARE the same.", "color": GameManager.get_blame_color_light()},
-		{"speaker": "Denial", "text": "Two halves. One mind.", "color": GameManager.get_denial_color_light()},
-		{"speaker": "Blame", "text": "Fighting ourselves this whole time.", "color": GameManager.get_blame_color_light()},
+		{"speaker": "Denial", "text": "Wait... I feel what you feel.",       "color": GameManager.get_denial_color_light()},
+		{"speaker": "Blame",  "text": "Because we ARE the same.",            "color": GameManager.get_blame_color_light()},
+		{"speaker": "Denial", "text": "Two halves. One mind.",               "color": GameManager.get_denial_color_light()},
+		{"speaker": "Blame",  "text": "Fighting ourselves this whole time.", "color": GameManager.get_blame_color_light()},
 	])
 
 	dialogue.play_dialogue(lines)
