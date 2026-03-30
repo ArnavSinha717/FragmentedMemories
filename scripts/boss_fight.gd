@@ -12,8 +12,9 @@ extends Control
 
 const PLAYER_SPEED := 290.0
 const BOSS_MAX_HEALTH := 120.0
-const CHARGE_PER_HIT := 12.0
-const DAMAGE_PER_SYNC := 8.0
+const CHARGE_PER_HIT := 22.0     # Charge fills fast
+const DAMAGE_PER_SYNC := 2.0     # Regular sync hits = chip damage
+const BURST_DAMAGE := 30.0       # Full charge burst = big damage
 const ARENA_LEFT := 100.0
 const ARENA_RIGHT := 1180.0
 const ARENA_TOP := 180.0
@@ -72,6 +73,8 @@ const BOSS_HEAL_ON_HIT := 3.0  # Heals when it damages a player
 # --- Charge ---
 var charge := 0.0
 var charge_full := false
+var burst_flash := 0.0  # Visual flash when burst lands
+var burst_count := 0     # How many bursts landed so far
 
 # --- Visual ---
 var world_color := 1.0
@@ -124,6 +127,7 @@ func _process(delta: float) -> void:
 	p1_stun = maxf(0.0, p1_stun - delta)
 	p2_stun = maxf(0.0, p2_stun - delta)
 	sync_cooldown = maxf(0.0, sync_cooldown - delta)
+	burst_flash = maxf(0.0, burst_flash - delta * 2.0)
 
 	if phase == 2:
 		GameManager.advance_phase()
@@ -446,31 +450,54 @@ func _check_sync() -> void:
 		return
 
 	var diff: float = absf(p1_press_time - p2_press_time)
-	var window: float = 0.35 - float(boss_phase) * 0.05  # 0.35 → 0.30 → 0.25
+	var window: float = 0.35 - float(boss_phase) * 0.05
 
 	if diff <= window and diff >= 0:
-		boss_health -= DAMAGE_PER_SYNC
-		charge += CHARGE_PER_HIT
 		sync_flash = 1.0
-		screen_shake = 0.35
-		world_color = minf(1.0, world_color + 0.08)
 		sync_cooldown = SYNC_COOLDOWN_DURATION
-
 		p1_press_time = -10.0
 		p2_press_time = -10.0
 
-		if boss_health <= 0:
-			boss_health = 0
-			charge = GameManager.BOSS_CHARGE_MAX
-			charge_full = true
-			phase = 1
-			_show_fatality_prompt()
-			return
+		if charge_full:
+			# BURST ATTACK — both press while charge is full = massive damage
+			boss_health -= BURST_DAMAGE
+			charge = 0.0
+			charge_full = false
+			burst_flash = 1.0
+			burst_count += 1
+			screen_shake = 0.8
+			world_color = minf(1.0, world_color + 0.2)
 
-		if charge >= GameManager.BOSS_CHARGE_MAX:
-			charge = GameManager.BOSS_CHARGE_MAX
-			charge_full = true
-			_show_fatality_prompt()
+			if boss_health <= 0:
+				boss_health = 0
+				phase = 1
+				_show_fatality_prompt()
+				return
+
+			# After burst, close vulnerability — boss gets angry
+			vulnerable = false
+			vulnerable_timer = 0.0
+			attacks_since_vulnerable = 0
+			boss_attack_timer = 0.3
+			hint_label.text = "BURST! " + str(int(boss_health)) + " HP left!"
+		else:
+			# Regular sync hit — chip damage + charge buildup
+			boss_health -= DAMAGE_PER_SYNC
+			charge += CHARGE_PER_HIT
+			screen_shake = 0.3
+			world_color = minf(1.0, world_color + 0.06)
+
+			if boss_health <= 0:
+				boss_health = 0
+				phase = 1
+				_show_fatality_prompt()
+				return
+
+			if charge >= GameManager.BOSS_CHARGE_MAX:
+				charge = GameManager.BOSS_CHARGE_MAX
+				charge_full = true
+				hint_label.text = "CHARGE FULL! Both attack NOW!"
+				hint_label.modulate.a = 1.0
 
 
 func _check_desync() -> void:
@@ -491,8 +518,9 @@ func _check_desync() -> void:
 
 
 func _show_fatality_prompt() -> void:
-	hint_label.text = "BOTH PRESS NOW!"
+	hint_label.text = "GUILT FALLS!"
 	hint_label.modulate.a = 1.0
+	# Short delay then advance
 	phase = 2
 
 
@@ -615,9 +643,19 @@ func _draw() -> void:
 		draw_circle(p1d, 35, Color(GameManager.get_blame_color_light(), 0.08))
 		draw_circle(p2d, 35, Color(GameManager.get_denial_color_light(), 0.08))
 
-	# --- Charge glow ---
+	# --- Charge glow when full (pulsing gold) ---
 	if charge_full:
-		draw_rect(Rect2(Vector2.ZERO, Vector2(1280, 720)), Color(0.9, 0.8, 0.2, sin(pulse_time * 4.0) * 0.15 + 0.3))
+		draw_rect(Rect2(Vector2.ZERO, Vector2(1280, 720)), Color(0.9, 0.8, 0.2, sin(pulse_time * 5.0) * 0.12 + 0.2))
+		# Glow around both players
+		draw_circle(p1d, 35, Color(0.9, 0.8, 0.2, sin(pulse_time * 5.0) * 0.1 + 0.15))
+		draw_circle(p2d, 35, Color(0.9, 0.8, 0.2, sin(pulse_time * 5.0) * 0.1 + 0.15))
+
+	# --- Burst flash (big white flash when burst lands) ---
+	if burst_flash > 0:
+		draw_rect(Rect2(Vector2.ZERO, Vector2(1280, 720)), Color(1.0, 0.95, 0.8, burst_flash * 0.4))
+		# Damage line from players to boss
+		draw_line(p1d, bp, Color(1.0, 0.9, 0.3, burst_flash * 0.8), 4.0)
+		draw_line(p2d, bp, Color(1.0, 0.9, 0.3, burst_flash * 0.8), 4.0)
 
 	# --- Phase text ---
 	if boss_phase >= 2:
