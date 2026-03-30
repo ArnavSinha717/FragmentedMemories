@@ -331,7 +331,7 @@ func _process_denial_abilities(_delta: float) -> void:
 		denial_suppress_cd = DENIAL_SUPPRESS_CD
 		denial_suppress_anim = 1.0
 		if p2_pos.distance_to(p1_pos) < DENIAL_SUPPRESS_RANGE and p1_stun <= 0:
-			var push_dir := sign(p1_pos.x - p2_pos.x)
+			var push_dir: float = signf(p1_pos.x - p2_pos.x)
 			if push_dir == 0: push_dir = p2_facing
 			p1_vel.x = push_dir * DENIAL_SUPPRESS_PUSH
 			p1_vel.y = -120.0
