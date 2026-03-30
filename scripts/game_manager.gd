@@ -1,0 +1,270 @@
+extends Node
+
+## Global game state manager — tracks fragment order, wins, and scene progression.
+
+signal hue_changed(value: float) # 0.0 = full blame (cold), 1.0 = full denial (warm)
+signal fragment_revealed(fragment_id: String)
+signal phase_changed(phase: String)
+
+# Fragment IDs
+const GOOD_1 = "G1" # Happy times
+const GOOD_2 = "G2" # Conversations / promises
+const BAD_1 = "B1"  # Lipika crying
+const BAD_2 = "B2"  # The accident
+
+# Game phases
+enum Phase {
+	MAIN_MENU,
+	INTRO_CUTSCENE,
+	COMPETITIVE_1,
+	FRAGMENT_REVEAL_1,
+	COMPETITIVE_2,
+	FRAGMENT_REVEAL_2,
+	TRANSITION_CUTSCENE,
+	COOPERATIVE_1,
+	FRAGMENT_REVEAL_3,
+	COOPERATIVE_2,
+	FRAGMENT_REVEAL_4,
+	FULL_MEMORY,
+	BOSS_FIGHT,
+	FATALITY,
+	OUTRO,
+	REFLECTION
+}
+
+var current_phase: Phase = Phase.MAIN_MENU
+var hue_value: float = 0.5 # 0=blame, 1=denial
+
+# Track who wins each competitive minigame
+var blame_wins: int = 0
+var denial_wins: int = 0
+
+# Fragments shown so far
+var revealed_fragments: Array[String] = []
+var fragment_order: Array[String] = [] # Will be built based on wins
+
+# Transition cutscene tracking
+var bad2_revealed: bool = false       # True once BAD_2 fragment has been shown
+var transition_shown: bool = false    # True once the transition cutscene has played
+var coop_phase: int = 0              # 0=not started, 1=done coop1, 2=done coop2
+
+# The 4 fragment queues based on path
+var blame_path: Array[String] = [BAD_1, BAD_2, GOOD_1, GOOD_2]
+var denial_path: Array[String] = [GOOD_1, GOOD_2, BAD_1, BAD_2]
+
+# Boss
+var boss_charge: float = 0.0
+const BOSS_CHARGE_MAX: float = 100.0
+
+# Scene paths
+var scene_map: Dictionary = {
+	Phase.MAIN_MENU: "res://scenes/main_menu.tscn",
+	Phase.INTRO_CUTSCENE: "res://scenes/intro_cutscene.tscn",
+	Phase.COMPETITIVE_1: "res://scenes/competitive_fight.tscn",
+	Phase.COMPETITIVE_2: "res://scenes/territory_grab.tscn",
+	Phase.TRANSITION_CUTSCENE: "res://scenes/transition_cutscene.tscn",
+	Phase.COOPERATIVE_1: "res://scenes/push_block.tscn",
+	Phase.COOPERATIVE_2: "res://scenes/sync_press.tscn",
+	Phase.FULL_MEMORY: "res://scenes/full_memory.tscn",
+	Phase.BOSS_FIGHT: "res://scenes/boss_fight.tscn",
+	Phase.FATALITY: "res://scenes/fatality.tscn",
+	Phase.OUTRO: "res://scenes/outro.tscn",
+	Phase.REFLECTION: "res://scenes/reflection.tscn",
+	Phase.FRAGMENT_REVEAL_1: "res://scenes/fragment_reveal.tscn",
+	Phase.FRAGMENT_REVEAL_2: "res://scenes/fragment_reveal.tscn",
+	Phase.FRAGMENT_REVEAL_3: "res://scenes/fragment_reveal.tscn",
+	Phase.FRAGMENT_REVEAL_4: "res://scenes/fragment_reveal.tscn",
+}
+
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+
+func reset_game() -> void:
+	current_phase = Phase.MAIN_MENU
+	hue_value = 0.5
+	blame_wins = 0
+	denial_wins = 0
+	revealed_fragments.clear()
+	fragment_order.clear()
+	boss_charge = 0.0
+	bad2_revealed = false
+	transition_shown = false
+	coop_phase = 0
+
+
+func set_hue(value: float) -> void:
+	hue_value = clampf(value, 0.0, 1.0)
+	hue_changed.emit(hue_value)
+
+
+func register_competitive_win(blame_won: bool) -> void:
+	if blame_won:
+		blame_wins += 1
+	else:
+		denial_wins += 1
+	_rebuild_fragment_order()
+
+
+func _rebuild_fragment_order() -> void:
+	fragment_order.clear()
+	# Competitive rounds: winner determines which fragment surfaces
+	# Blame winning → bad memories first, Denial winning → good memories first
+	var competitive_fragments: Array[String] = []
+	var remaining_fragments: Array[String] = []
+
+	# Round 1
+	if blame_wins >= 1:
+		competitive_fragments.append(BAD_1)
+	else:
+		competitive_fragments.append(GOOD_1)
+
+	# Round 2
+	if blame_wins >= 2:
+		competitive_fragments.append(BAD_2)
+	elif denial_wins >= 2:
+		competitive_fragments.append(GOOD_2)
+	elif blame_wins == 1 and denial_wins == 1:
+		# Mixed: blame won round 1, denial won round 2
+		competitive_fragments.append(GOOD_2)
+	else:
+		competitive_fragments.append(BAD_2)
+
+	# Cooperative rounds get whatever remains
+	var all_fragments: Array[String] = [GOOD_1, GOOD_2, BAD_1, BAD_2]
+	for f: String in all_fragments:
+		if f not in competitive_fragments:
+			remaining_fragments.append(f)
+
+	fragment_order = competitive_fragments + remaining_fragments
+
+
+func get_next_fragment() -> String:
+	var idx := revealed_fragments.size()
+	if idx < fragment_order.size():
+		var frag: String = fragment_order[idx]
+		revealed_fragments.append(frag)
+		if frag == BAD_2:
+			bad2_revealed = true
+		fragment_revealed.emit(frag)
+		return frag
+	return ""
+
+
+func get_current_fragment_id() -> String:
+	# Returns the fragment that should be shown next (without consuming it)
+	var idx := revealed_fragments.size()
+	if idx < fragment_order.size():
+		return fragment_order[idx]
+	return ""
+
+
+func advance_phase() -> void:
+	var next_phase: Phase
+	match current_phase:
+		Phase.MAIN_MENU:
+			next_phase = Phase.INTRO_CUTSCENE
+		Phase.INTRO_CUTSCENE:
+			next_phase = Phase.COMPETITIVE_1
+		Phase.COMPETITIVE_1:
+			next_phase = Phase.FRAGMENT_REVEAL_1
+		Phase.FRAGMENT_REVEAL_1:
+			next_phase = Phase.COMPETITIVE_2
+		Phase.COMPETITIVE_2:
+			next_phase = Phase.FRAGMENT_REVEAL_2
+		Phase.FRAGMENT_REVEAL_2:
+			if bad2_revealed and not transition_shown:
+				next_phase = Phase.TRANSITION_CUTSCENE
+				transition_shown = true
+			else:
+				next_phase = Phase.COOPERATIVE_1
+		Phase.TRANSITION_CUTSCENE:
+			if coop_phase == 0:
+				next_phase = Phase.COOPERATIVE_1
+			else:
+				next_phase = Phase.COOPERATIVE_2
+		Phase.COOPERATIVE_1:
+			coop_phase = 1
+			next_phase = Phase.FRAGMENT_REVEAL_3
+		Phase.FRAGMENT_REVEAL_3:
+			if bad2_revealed and not transition_shown:
+				next_phase = Phase.TRANSITION_CUTSCENE
+				transition_shown = true
+			else:
+				next_phase = Phase.COOPERATIVE_2
+		Phase.COOPERATIVE_2:
+			coop_phase = 2
+			next_phase = Phase.FRAGMENT_REVEAL_4
+		Phase.FRAGMENT_REVEAL_4:
+			next_phase = Phase.FULL_MEMORY
+		Phase.FULL_MEMORY:
+			next_phase = Phase.BOSS_FIGHT
+		Phase.BOSS_FIGHT:
+			next_phase = Phase.FATALITY
+		Phase.FATALITY:
+			next_phase = Phase.OUTRO
+		Phase.OUTRO:
+			next_phase = Phase.REFLECTION
+		Phase.REFLECTION:
+			next_phase = Phase.MAIN_MENU
+			reset_game()
+		_:
+			next_phase = Phase.MAIN_MENU
+
+	current_phase = next_phase
+	phase_changed.emit(Phase.keys()[current_phase])
+	_load_phase_scene()
+
+
+func _load_phase_scene() -> void:
+	if scene_map.has(current_phase):
+		get_tree().change_scene_to_file(scene_map[current_phase])
+
+
+func go_to_phase(phase: Phase) -> void:
+	current_phase = phase
+	phase_changed.emit(Phase.keys()[current_phase])
+	_load_phase_scene()
+
+
+# Color helpers
+func get_blame_color() -> Color:
+	return Color(0.2, 0.25, 0.45) # Cold dark blue
+
+func get_blame_color_light() -> Color:
+	return Color(0.35, 0.4, 0.65)
+
+func get_denial_color() -> Color:
+	return Color(0.88, 0.48, 0.37) # Warm muted orange
+
+func get_denial_color_light() -> Color:
+	return Color(0.95, 0.65, 0.5)
+
+func get_grey() -> Color:
+	return Color(0.35, 0.35, 0.38)
+
+func get_bg_color() -> Color:
+	# Interpolate between blame (cold) and denial (warm) based on hue_value
+	var blame_bg := Color(0.08, 0.08, 0.15)
+	var denial_bg := Color(0.18, 0.12, 0.1)
+	return blame_bg.lerp(denial_bg, hue_value)
+
+
+# Fragment texture paths
+func get_fragment_texture_path(fragment_id: String) -> String:
+	match fragment_id:
+		GOOD_1: return "res://assets/fragments/G1_happy_times.png"
+		GOOD_2: return "res://assets/fragments/G2_conversations.png"
+		BAD_1: return "res://assets/fragments/B1_crying.png"
+		BAD_2: return "res://assets/fragments/B2_accident.png"
+	return ""
+
+
+func get_fragment_title(fragment_id: String) -> String:
+	match fragment_id:
+		GOOD_1: return "Happy Times"
+		GOOD_2: return "The Promise"
+		BAD_1: return "Tears"
+		BAD_2: return "The Accident"
+	return ""

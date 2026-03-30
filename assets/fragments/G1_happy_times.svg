@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#2a1f1a" rx="10"/>
+  <circle cx="220" cy="200" r="50" fill="#e07a5f" opacity="0.7"/>
+  <circle cx="380" cy="200" r="50" fill="#d4956b" opacity="0.7"/>
+  <circle cx="220" cy="185" r="6" fill="#fff" opacity="0.5"/>
+  <circle cx="380" cy="185" r="6" fill="#fff" opacity="0.5"/>
+  <path d="M210 215 Q220 230 230 215" stroke="#fff" stroke-width="2" fill="none" opacity="0.4"/>
+  <path d="M370 215 Q380 230 390 215" stroke="#fff" stroke-width="2" fill="none" opacity="0.4"/>
+  <line x1="270" y1="200" x2="330" y2="200" stroke="#d4956b" stroke-width="2" opacity="0.3"/>
+  <text x="300" y="350" text-anchor="middle" fill="#8a7a6a" font-size="18" font-family="sans-serif">Happy Times</text>
+</svg>
