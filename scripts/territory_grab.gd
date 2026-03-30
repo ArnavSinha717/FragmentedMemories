@@ -94,7 +94,7 @@ func _ready() -> void:
 	p2_score_label.add_theme_color_override("font_color", GameManager.get_denial_color_light())
 	p1_score_label.text = "BLAME: 0"
 	p2_score_label.text = "DENIAL: 0"
-	dialogue.dialogue_finished.connect(_on_dialogue_done)
+	# Dialogue no longer used — post-match reactions moved to fragment_reveal
 
 
 func _process(delta: float) -> void:
