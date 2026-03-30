@@ -89,18 +89,32 @@ func _draw() -> void:
 
 
 func _start_dialogue() -> void:
-	var lines: Array[Dictionary] = [
-		{"speaker": "Denial", "text": "Why is there so much blood?", "color": GameManager.get_denial_color_light()},
-		{"speaker": "", "text": "...", "color": Color(0.4, 0.4, 0.45)},
-		{"speaker": "Blame", "text": "...You really don't remember.", "color": GameManager.get_blame_color_light()},
-		{"speaker": "Denial", "text": "I don't want to.", "color": GameManager.get_denial_color_light()},
-		{"speaker": "Blame", "text": "Neither do I.", "color": GameManager.get_blame_color_light()},
-		{"speaker": "", "text": "...", "color": Color(0.4, 0.4, 0.45)},
-		{"speaker": "Denial", "text": "But we have to, don't we.", "color": GameManager.get_denial_color_light()},
-		{"speaker": "Blame", "text": "...Yeah.", "color": GameManager.get_blame_color_light()},
+	var lines: Array[Dictionary] = []
+
+	# Only show the full emotional dialogue if BAD_2 was JUST revealed
+	# (i.e. it's the most recent fragment). If it was revealed earlier,
+	# the fragment reveal already covered the heavy stuff — keep it brief.
+	var frags: Array[String] = GameManager.revealed_fragments
+	var bad2_is_latest: bool = frags.size() > 0 and frags[frags.size() - 1] == GameManager.BAD_2
+
+	if bad2_is_latest:
+		lines = [
+			{"speaker": "Denial", "text": "Why is there so much blood?", "color": GameManager.get_denial_color_light()},
+			{"speaker": "", "text": "...", "color": Color(0.4, 0.4, 0.45)},
+			{"speaker": "Blame", "text": "...You really don't remember.", "color": GameManager.get_blame_color_light()},
+			{"speaker": "Denial", "text": "I don't want to.", "color": GameManager.get_denial_color_light()},
+			{"speaker": "Blame", "text": "Neither do I.", "color": GameManager.get_blame_color_light()},
+			{"speaker": "", "text": "...", "color": Color(0.4, 0.4, 0.45)},
+			{"speaker": "Denial", "text": "But we have to, don't we.", "color": GameManager.get_denial_color_light()},
+			{"speaker": "Blame", "text": "...Yeah.", "color": GameManager.get_blame_color_light()},
+		]
+
+	# Always end with the cooperative transition lines
+	lines.append_array([
 		{"speaker": "", "text": "The fighting stops. They walk together now.", "color": Color(0.6, 0.6, 0.65)},
 		{"speaker": "", "text": "We can't carry this alone. We have to help each other through it.", "color": Color(0.6, 0.6, 0.65)},
-	]
+	])
+
 	dialogue.play_dialogue(lines)
 
 
