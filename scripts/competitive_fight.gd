@@ -407,7 +407,7 @@ func _update_projectiles(delta: float) -> void:
 	for i in range(blame_projectiles.size() - 1, -1, -1):
 		var proj: Dictionary = blame_projectiles[i]
 		proj.pos = (proj.pos as Vector2) + (proj.vel as Vector2) * delta
-		var pp: Vector2 = proj.pos
+		var pp: Vector2 = proj.pos as Vector2
 
 		# Hit Denial?
 		if pp.distance_to(p2_pos) < (proj.size as float) + 20.0 and p2_stun <= 0:
@@ -420,7 +420,7 @@ func _update_projectiles(delta: float) -> void:
 				p2_damage += 2
 				blame_projectiles.remove_at(i)
 				continue
-			var dmg: int = int(proj.dmg) + 1
+			var dmg: int = (int(proj.dmg as float) + 1)
 			p2_hit_flash = 1.0
 			p2_stun = 0.3
 			p2_vel.x = sign(pp.x - p1_pos.x) * 200.0
@@ -480,7 +480,7 @@ func _draw() -> void:
 
 	# ── Burden Zones ──────────────────────────────────────────────────
 	for zone: Dictionary in burden_zones:
-		var zp: Vector2 = zone.pos
+		var zp: Vector2 = zone.pos as Vector2
 		var life: float = (zone.timer as float) / BURDEN_DURATION
 		var za: float = life * 0.25
 		draw_circle(zp, BURDEN_RADIUS, Color(0.15, 0.1, 0.2, za))
@@ -503,8 +503,8 @@ func _draw() -> void:
 
 	# ── Projectiles ───────────────────────────────────────────────────
 	for proj: Dictionary in blame_projectiles:
-		var pp: Vector2 = proj.pos
-		var sz: float = proj.size
+		var pp: Vector2 = proj.pos as Vector2
+		var sz: float = proj.size as float
 		draw_circle(pp, sz, Color(0.3, 0.35, 0.75, 0.8))
 		draw_circle(pp, sz * 0.5, Color(0.5, 0.55, 0.9, 0.5))
 		# Trail
@@ -512,7 +512,7 @@ func _draw() -> void:
 
 	# ── Decoys ────────────────────────────────────────────────────────
 	for decoy: Dictionary in decoys:
-		var dp: Vector2 = decoy.pos
+		var dp: Vector2 = decoy.pos as Vector2
 		var da: float = clampf((decoy.timer as float) / DECOY_DURATION, 0.0, 1.0) * 0.5
 		# Ghost of Denial
 		draw_circle(dp, 20, Color(GameManager.get_denial_color(), da))
