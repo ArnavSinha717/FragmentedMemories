@@ -158,11 +158,12 @@ func generate_shards() -> void:
 func _add_global_shard(pts: PackedVector2Array, col: int, row: int) -> void:
 	var norm_x: float = float(col) / float(SHARD_COLS)
 	var warm_bias: float = 1.0 - norm_x
+	# Muted revealed colors — subtle, not distracting during gameplay
 	var revealed_color: Color
 	if randf() < warm_bias:
-		revealed_color = Color(randf_range(0.7, 0.95), randf_range(0.35, 0.6), randf_range(0.2, 0.4), 0.85)
+		revealed_color = Color(randf_range(0.25, 0.38), randf_range(0.15, 0.22), randf_range(0.1, 0.16), 0.9)
 	else:
-		revealed_color = Color(randf_range(0.15, 0.35), randf_range(0.2, 0.45), randf_range(0.5, 0.8), 0.85)
+		revealed_color = Color(randf_range(0.08, 0.15), randf_range(0.1, 0.18), randf_range(0.2, 0.32), 0.9)
 
 	var grey_val: float = randf_range(0.12, 0.22)
 	var center: Vector2 = (pts[0] + pts[1] + pts[2]) / 3.0
@@ -215,8 +216,8 @@ func trigger_collapse() -> void:
 func _shatter_shard(shard: Dictionary, impact_pos: Vector2) -> void:
 	shard.alive = false
 	var center: Vector2 = shard.center
-	var vel: Vector2 = (center - impact_pos).normalized() * randf_range(50, 180)
-	vel.y -= randf_range(40, 130)
+	var vel: Vector2 = (center - impact_pos).normalized() * randf_range(20, 80)
+	vel.y -= randf_range(15, 50)
 	falling_shards.append({
 		"points": shard.points,
 		"center": Vector2(center.x, center.y),
@@ -230,6 +231,14 @@ func get_alive_shard_count() -> int:
 	var count: int = 0
 	for shard: Dictionary in shards:
 		if shard.alive:
+			count += 1
+	return count
+
+
+func get_uncorrupted_count() -> int:
+	var count: int = 0
+	for shard: Dictionary in shards:
+		if not shard.get("corrupted", false):
 			count += 1
 	return count
 

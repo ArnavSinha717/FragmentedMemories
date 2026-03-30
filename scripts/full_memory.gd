@@ -1,11 +1,12 @@
 extends Control
 
-## Full Memory Assembly — All 4 fragments shown together. The complete truth.
+## Full Memory Assembly — All 4 fragment images shown together.
+## After dialogue, GUILT corrupts the background to black and emerges from the darkness.
 
 @onready var dialogue: Node = $DialogueSystem
 
 var time_elapsed := 0.0
-var phase: int = 0 # 0=assembly, 1=dialogue, 2=collapse, 3=guilt_emerges, 4=done
+var phase: int = 0 # 0=assembly, 1=dialogue, 2=corruption, 3=guilt_emerges, 4=done
 var fragment_positions: Array[Vector2] = [
 	Vector2(320, 220), Vector2(960, 220),
 	Vector2(320, 480), Vector2(960, 480)
@@ -16,9 +17,33 @@ var reveal_timer := 0.0
 var guilt_alpha := 0.0
 var pulse_time := 0.0
 
+# Fragment image textures
+var fragment_textures: Array = [null, null, null, null]  # Loaded in _ready
+
+# Image paths per fragment ID
+var fragment_image_map: Dictionary = {
+	"G1": "res://pictures/smiling_friends.png",
+	"G2": "res://pictures/bucket_list.png",
+	"B1": "res://pictures/sad_crying.png",
+	"B2": "res://pictures/dead.png",
+}
+
+var fragment_labels_map: Dictionary = {
+	"G1": "Happy Times",
+	"G2": "The Promise",
+	"B1": "Tears",
+	"B2": "The Accident",
+}
+
 
 func _ready() -> void:
 	dialogue.dialogue_finished.connect(_on_dialogue_done)
+	# Pre-load textures for the 4 fragments in their reveal order
+	for i in range(mini(4, GameManager.fragment_order.size())):
+		var fid: String = GameManager.fragment_order[i]
+		var path: String = fragment_image_map.get(fid, "")
+		if path != "" and ResourceLoader.exists(path):
+			fragment_textures[i] = load(path)
 
 
 func _process(delta: float) -> void:
@@ -26,27 +51,31 @@ func _process(delta: float) -> void:
 	pulse_time += delta
 
 	match phase:
-		0: # Reveal fragments one by one
+		0: # Reveal fragment images one by one
 			reveal_timer += delta
-			if reveal_timer > 1.2 and fragment_reveal_index < 4:
+			if reveal_timer > 1.5 and fragment_reveal_index < 4:
 				fragment_reveal_index += 1
 				reveal_timer = 0.0
 
 			for i in range(fragment_reveal_index):
-				fragment_alphas[i] = min(1.0, fragment_alphas[i] + delta * 0.8)
+				fragment_alphas[i] = minf(1.0, fragment_alphas[i] + delta * 0.7)
 
-			if fragment_reveal_index >= 4 and time_elapsed > 7.0:
+			if fragment_reveal_index >= 4 and time_elapsed > 8.0:
 				phase = 1
 				_start_dialogue()
 
 		1: pass # Dialogue
-		2: # Collapse — shards break to reveal GUILT
-			if not GameManager.collapse_active and GameManager.get_alive_shard_count() <= 0:
+		2: # Corruption — GUILT turns everything black
+			# Wait for corruption to finish (all shards corrupted)
+			if not GameManager.collapse_active:
 				phase = 3
 				time_elapsed = 0.0
-		3: # Guilt emerges
-			guilt_alpha = min(1.0, guilt_alpha + delta * 0.3)
-			if time_elapsed > 4.0:
+		3: # Guilt emerges from the darkness
+			guilt_alpha = minf(1.0, guilt_alpha + delta * 0.25)
+			# Fade out fragment images as guilt takes over
+			for i in range(4):
+				fragment_alphas[i] = maxf(0.0, fragment_alphas[i] - delta * 0.4)
+			if time_elapsed > 5.0:
 				phase = 4
 		4:
 			GameManager.advance_phase()
@@ -58,70 +87,62 @@ func _draw() -> void:
 	# Draw connecting lines between fragments
 	for i in range(fragment_reveal_index):
 		for j in range(i + 1, fragment_reveal_index):
-			var alpha: float = min(fragment_alphas[i], fragment_alphas[j]) * 0.15
-			draw_line(fragment_positions[i], fragment_positions[j], Color(0.5, 0.5, 0.55, alpha), 1.0)
+			var alpha: float = minf(fragment_alphas[i], fragment_alphas[j]) * 0.2
+			draw_line(fragment_positions[i], fragment_positions[j], Color(0.5, 0.5, 0.55, alpha), 1.5)
 
-	# Draw fragment placeholders
+	# Draw the 4 fragment IMAGES
 	var fragment_ids: Array[String] = GameManager.fragment_order
-	var fragment_colors: Dictionary = {
-		GameManager.GOOD_1: Color(0.9, 0.65, 0.4),
-		GameManager.GOOD_2: Color(0.85, 0.6, 0.45),
-		GameManager.BAD_1: Color(0.4, 0.45, 0.65),
-		GameManager.BAD_2: Color(0.6, 0.2, 0.2)
-	}
-	var fragment_labels: Dictionary = {
-		GameManager.GOOD_1: "Happy Times",
-		GameManager.GOOD_2: "The Promise",
-		GameManager.BAD_1: "Tears",
-		GameManager.BAD_2: "The Accident"
-	}
-
 	for i in range(mini(fragment_reveal_index, 4)):
 		if i >= fragment_ids.size():
 			break
 		var fid: String = fragment_ids[i]
 		var pos: Vector2 = fragment_positions[i]
 		var alpha: float = fragment_alphas[i]
-		var col: Color = fragment_colors.get(fid, Color.WHITE)
-		col.a = alpha * 0.6
 
-		# Try to load actual texture
-		var tex_path := GameManager.get_fragment_texture_path(fid)
-		if ResourceLoader.exists(tex_path):
-			var tex: Texture2D = load(tex_path) as Texture2D
-			if tex:
-				draw_texture_rect(tex, Rect2(pos - Vector2(120, 80), Vector2(240, 160)), false, Color(1, 1, 1, alpha))
+		# Draw the actual image
+		var tex: Texture2D = fragment_textures[i] as Texture2D
+		if tex:
+			var img_size := Vector2(260, 175)
+			draw_texture_rect(tex, Rect2(pos - img_size * 0.5, img_size), false, Color(1, 1, 1, alpha))
+			# Subtle border
+			draw_rect(Rect2(pos - img_size * 0.5, img_size), Color(0.6, 0.6, 0.65, alpha * 0.3), false, 2.0)
 		else:
-			# Placeholder rectangle
+			# Fallback colored rectangle
+			var col: Color = Color(0.4, 0.4, 0.45, alpha * 0.5)
 			draw_rect(Rect2(pos - Vector2(100, 65), Vector2(200, 130)), col)
-			draw_rect(Rect2(pos - Vector2(100, 65), Vector2(200, 130)), Color(col.r, col.g, col.b, alpha * 0.4), false, 2.0)
 
 		# Label
 		var font := ThemeDB.fallback_font
-		var label: String = fragment_labels.get(fid, "")
+		var label: String = fragment_labels_map.get(fid, "")
 		var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16)
-		draw_string(font, pos + Vector2(-text_size.x * 0.5, 80), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.7, 0.7, 0.75, alpha * 0.8))
+		draw_string(font, pos + Vector2(-text_size.x * 0.5, 100), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.7, 0.7, 0.75, alpha * 0.8))
 
 	# Center pulse when all revealed
-	if fragment_reveal_index >= 4:
+	if fragment_reveal_index >= 4 and phase < 2:
 		var center := Vector2(640, 360)
 		var pulse_alpha := sin(pulse_time * 2.0) * 0.1 + 0.15
 		draw_circle(center, 30, Color(0.6, 0.55, 0.6, pulse_alpha))
 
-	# Guilt emergence
-	if phase >= 2:
-		var center := Vector2(640, 680 - guilt_alpha * 300)
-		# Large dark shape
-		var guilt_col := Color(0.1, 0.08, 0.12, guilt_alpha * 0.9)
-		draw_circle(center, 80 * guilt_alpha, guilt_col)
-		# Tendrils
-		for i in range(5):
-			var angle := (float(i) / 5.0) * TAU + pulse_time * 0.3
-			var tendril_end := center + Vector2(cos(angle), sin(angle)) * 120 * guilt_alpha
-			draw_line(center, tendril_end, Color(0.15, 0.1, 0.18, guilt_alpha * 0.5), 3.0)
-		# Eyes
-		draw_circle(center + Vector2(-20, -10), 8, Color(0.4, 0.1, 0.1, guilt_alpha))
-		draw_circle(center + Vector2(20, -10), 8, Color(0.4, 0.1, 0.1, guilt_alpha))
+	# GUILT emergence from the corrupted black background
+	if phase >= 3 and guilt_alpha > 0:
+		var center := Vector2(640, 360)
+		# Massive dark body — emerges from the blackness
+		var body_size: float = 90.0 * guilt_alpha
+		draw_circle(center, body_size, Color(0.06, 0.04, 0.08, guilt_alpha * 0.9))
+		draw_circle(center, body_size * 0.65, Color(0.1, 0.06, 0.12, guilt_alpha * 0.6))
+		# Tendrils reaching outward
+		for i in range(8):
+			var angle := (float(i) / 8.0) * TAU + pulse_time * 0.2
+			var length: float = (150.0 + sin(pulse_time * 1.2 + float(i)) * 40.0) * guilt_alpha
+			var tendril_end := center + Vector2(cos(angle), sin(angle)) * length
+			draw_line(center, tendril_end, Color(0.12, 0.06, 0.15, guilt_alpha * 0.5), 3.0)
+			draw_circle(tendril_end, 6, Color(0.15, 0.08, 0.18, guilt_alpha * 0.3))
+		# Eyes — glowing red
+		var eye_glow: float = sin(pulse_time * 2.5) * 0.15 + 0.7
+		draw_circle(center + Vector2(-25, -15), 12 * guilt_alpha, Color(0.5, 0.1, 0.12, guilt_alpha * eye_glow))
+		draw_circle(center + Vector2(25, -15), 12 * guilt_alpha, Color(0.5, 0.1, 0.12, guilt_alpha * eye_glow))
+		draw_circle(center + Vector2(-25, -15), 5 * guilt_alpha, Color(0.9, 0.2, 0.2, guilt_alpha))
+		draw_circle(center + Vector2(25, -15), 5 * guilt_alpha, Color(0.9, 0.2, 0.2, guilt_alpha))
 
 
 func _start_dialogue() -> void:
@@ -134,7 +155,7 @@ func _start_dialogue() -> void:
 		{"speaker": "Denial", "text": "She wouldn't want that.", "color": GameManager.get_denial_color_light()},
 		{"speaker": "Blame", "text": "No. She wouldn't.", "color": GameManager.get_blame_color_light()},
 		{"speaker": "Blame", "text": "So why are we still doing this to ourselves?", "color": GameManager.get_blame_color_light()},
-		{"speaker": "", "text": "Something stirs in the darkness behind them...", "color": Color(0.4, 0.3, 0.35)},
+		{"speaker": "", "text": "Something stirs in the darkness...", "color": Color(0.4, 0.3, 0.35)},
 	]
 	dialogue.play_dialogue(lines)
 
@@ -143,4 +164,4 @@ func _on_dialogue_done() -> void:
 	if phase == 1:
 		phase = 2
 		time_elapsed = 0.0
-		GameManager.trigger_collapse()  # All remaining shards break dramatically
+		GameManager.trigger_collapse()  # GUILT corrupts all shards to black

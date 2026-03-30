@@ -20,14 +20,14 @@ func _process(delta: float) -> void:
 		var decay_interval: float = 999.0  # No decay by default
 		match phase:
 			GameManager.Phase.MAIN_MENU: decay_interval = 999.0
-			GameManager.Phase.INTRO_CUTSCENE: decay_interval = 8.0
-			GameManager.Phase.COMPETITIVE_1: decay_interval = 0.6  # Fight breaks lots
-			GameManager.Phase.COMPETITIVE_2: decay_interval = 1.5
-			GameManager.Phase.COOPERATIVE_1: decay_interval = 2.0
-			GameManager.Phase.COOPERATIVE_2: decay_interval = 2.5
-			GameManager.Phase.TRANSITION_CUTSCENE: decay_interval = 3.0
-			GameManager.Phase.FULL_MEMORY: decay_interval = 999.0  # Collapse handles this
-			_: decay_interval = 4.0  # Gentle decay for cutscenes/reveals
+			GameManager.Phase.INTRO_CUTSCENE: decay_interval = 12.0
+			GameManager.Phase.COMPETITIVE_1: decay_interval = 1.5
+			GameManager.Phase.COMPETITIVE_2: decay_interval = 3.0
+			GameManager.Phase.COOPERATIVE_1: decay_interval = 4.0
+			GameManager.Phase.COOPERATIVE_2: decay_interval = 5.0
+			GameManager.Phase.TRANSITION_CUTSCENE: decay_interval = 6.0
+			GameManager.Phase.FULL_MEMORY: decay_interval = 999.0
+			_: decay_interval = 8.0
 
 		ambient_timer += delta
 		if ambient_timer >= decay_interval:
@@ -37,22 +37,31 @@ func _process(delta: float) -> void:
 	# Update falling shards
 	for i in range(GameManager.falling_shards.size() - 1, -1, -1):
 		var fs: Dictionary = GameManager.falling_shards[i]
-		fs.vel = (fs.vel as Vector2) + Vector2(0, 400) * delta
+		fs.vel = (fs.vel as Vector2) + Vector2(0, 150) * delta
 		fs.center = (fs.center as Vector2) + (fs.vel as Vector2) * delta
-		fs.alpha = (fs.alpha as float) - delta * 0.7
+		fs.alpha = (fs.alpha as float) - delta * 0.35
 		if (fs.alpha as float) <= 0 or (fs.center as Vector2).y > 800:
 			GameManager.falling_shards.remove_at(i)
 
-	# Collapse: rapidly break remaining shards
+	# Corruption: GUILT turns all shards black, spreading from center
 	if GameManager.collapse_active:
 		GameManager.collapse_timer += delta
-		var alive: int = GameManager.get_alive_shard_count()
-		if alive > 0:
-			# Break shards in waves — faster as collapse progresses
-			var break_rate: int = maxi(1, int(GameManager.collapse_timer * 15.0))
-			GameManager.break_random_shards(break_rate)
-		# Collapse is done when all shards broken
-		if alive <= 0:
+		var center := Vector2(640, 360)
+		var spread_radius: float = GameManager.collapse_timer * 300.0  # Expands outward
+		var any_uncorrupted: bool = false
+		for shard: Dictionary in GameManager.shards:
+			if shard.get("corrupted", false):
+				continue
+			var dist: float = (shard.center as Vector2).distance_to(center)
+			if dist < spread_radius:
+				# Corrupt this shard — turn it black
+				shard.surface_color = Color(0.03, 0.02, 0.05, 1.0)
+				shard.revealed_color = Color(0.03, 0.02, 0.05, 1.0)
+				shard.edge_color = Color(0.08, 0.04, 0.1, 0.5)
+				shard["corrupted"] = true
+			else:
+				any_uncorrupted = true
+		if not any_uncorrupted:
 			GameManager.collapse_active = false
 
 	queue_redraw()
