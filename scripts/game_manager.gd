@@ -81,6 +81,12 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	# DEBUG: Press F9 to skip current scene (for development only)
+	if event is InputEventKey and (event as InputEventKey).pressed and (event as InputEventKey).keycode == KEY_F9:
+		_debug_skip()
+
+
 func reset_game() -> void:
 	current_phase = Phase.MAIN_MENU
 	hue_value = 0.5
@@ -92,6 +98,20 @@ func reset_game() -> void:
 	bad2_revealed = false
 	transition_shown = false
 	coop_phase = 0
+
+
+func _debug_skip() -> void:
+	# For competitive minigames, register a random win + build fragment order
+	match current_phase:
+		Phase.COMPETITIVE_1:
+			register_competitive_win(randf() > 0.5)
+		Phase.COMPETITIVE_2:
+			register_competitive_win(randf() > 0.5)
+		Phase.FRAGMENT_REVEAL_1, Phase.FRAGMENT_REVEAL_2, Phase.FRAGMENT_REVEAL_3, Phase.FRAGMENT_REVEAL_4:
+			# Consume the fragment if not yet consumed
+			if revealed_fragments.size() < fragment_order.size():
+				get_next_fragment()
+	advance_phase()
 
 
 func set_hue(value: float) -> void:
