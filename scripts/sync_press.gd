@@ -5,24 +5,28 @@ extends Control
 ## Cold Shards (blue) = only Denial blocks. Warm Embers (orange) = only Blame blocks.
 ## Shadow Orbs = both must be near. Guilt Walls = both stand near to dissolve.
 ## Memory Wisps = both touch for a burst of light. Path splits at forks.
+## Players start separated by a maze and must navigate to a merge point.
 
 @onready var dialogue: Node = $DialogueSystem
 
 # --- Player ---
-var p1_pos := Vector2(100, 360)
-var p2_pos := Vector2(130, 380)
+var p1_pos := Vector2(100, 100)
+var p2_pos := Vector2(100, 600)
 const PLAYER_SPEED := 180.0
 const SLOW_SPEED_MULT := 0.6
 
 # --- Light ---
-const LIGHT_RADIUS_SOLO := 90.0
-const LIGHT_RADIUS_COMBINED := 170.0
+const LIGHT_RADIUS_SOLO := 120.0
+const LIGHT_RADIUS_COMBINED := 220.0
 const CLOSE_DIST := 150.0
 const FAR_DIST := 250.0
 
 # --- Path ---
 var waypoints: Array[Dictionary] = []
 # Each waypoint: {pos, color_hint} — color_hint: 0=neutral, 1=cold(blame fork), 2=warm(denial fork)
+
+# --- Maze ---
+var maze_walls: Array[Rect2] = []
 
 # --- Projectiles ---
 var projectiles: Array[Dictionary] = []
@@ -78,64 +82,98 @@ func _ready() -> void:
 
 func _build_path() -> void:
 	waypoints.clear()
-	# Winding path with fork sections
-	# Phase 1 — gentle start
+	maze_walls.clear()
+
+	# --- Maze walls (left third, x=0 to x=450) ---
+	# These form two separate corridors: top-left for P1, bottom-left for P2,
+	# merging around x=400-450.
+
+	# Main horizontal divider splitting top and bottom halves
+	maze_walls.append(Rect2(50, 340, 300, 20))
+
+	# Top half walls (P1's corridor from top-left heading right)
+	maze_walls.append(Rect2(160, 40, 20, 140))     # vertical wall forcing P1 down
+	maze_walls.append(Rect2(160, 180, 120, 20))     # horizontal shelf
+	maze_walls.append(Rect2(260, 100, 20, 100))     # vertical creating a turn
+	maze_walls.append(Rect2(260, 100, 100, 20))     # top horizontal
+	maze_walls.append(Rect2(340, 100, 20, 120))     # vertical dead-end wall
+	maze_walls.append(Rect2(200, 260, 130, 20))     # lower shelf in top half
+	maze_walls.append(Rect2(360, 200, 20, 160))     # vertical near merge, top side
+
+	# Bottom half walls (P2's corridor from bottom-left heading right)
+	maze_walls.append(Rect2(120, 480, 20, 140))     # vertical forcing P2 up
+	maze_walls.append(Rect2(120, 480, 140, 20))     # horizontal shelf
+	maze_walls.append(Rect2(240, 420, 20, 80))      # vertical creating a turn
+	maze_walls.append(Rect2(240, 560, 120, 20))     # lower horizontal
+	maze_walls.append(Rect2(340, 460, 20, 120))     # vertical dead-end wall
+	maze_walls.append(Rect2(180, 620, 150, 20))     # bottom shelf
+	maze_walls.append(Rect2(360, 400, 20, 80))      # vertical near merge, bottom side
+
+	# Merge area walls — funnel both paths to a single opening around x=400-450
+	maze_walls.append(Rect2(400, 200, 50, 20))      # narrowing top
+	maze_walls.append(Rect2(400, 500, 50, 20))      # narrowing bottom
+	# Opening between y=340 and y=400 allows both players through
+
+	# --- Waypoints from merge point onward ---
 	var path_points: Array[Dictionary] = [
-		{"pos": Vector2(100, 360), "color_hint": 0},
-		{"pos": Vector2(180, 300), "color_hint": 0},
-		{"pos": Vector2(270, 250), "color_hint": 0},
-		{"pos": Vector2(370, 310), "color_hint": 0},
-		{"pos": Vector2(440, 400), "color_hint": 0},
+		{"pos": Vector2(450, 370), "color_hint": 0},  # merge point
+		{"pos": Vector2(520, 320), "color_hint": 0},
+		{"pos": Vector2(580, 400), "color_hint": 0},
 		# Fork 1 — paths split
-		{"pos": Vector2(500, 350), "color_hint": 0},  # convergence before split
-		{"pos": Vector2(540, 260), "color_hint": 1},  # cold fork (blame takes this)
-		{"pos": Vector2(540, 460), "color_hint": 2},  # warm fork (denial takes this)
-		{"pos": Vector2(600, 220), "color_hint": 1},
-		{"pos": Vector2(600, 500), "color_hint": 2},
-		{"pos": Vector2(660, 360), "color_hint": 0},  # rejoin
+		{"pos": Vector2(640, 350), "color_hint": 0},  # convergence before split
+		{"pos": Vector2(680, 260), "color_hint": 1},  # cold fork (blame takes this)
+		{"pos": Vector2(680, 460), "color_hint": 2},  # warm fork (denial takes this)
+		{"pos": Vector2(740, 220), "color_hint": 1},
+		{"pos": Vector2(740, 500), "color_hint": 2},
+		{"pos": Vector2(800, 360), "color_hint": 0},  # rejoin
 		# Phase 2 — projectiles begin
-		{"pos": Vector2(740, 300), "color_hint": 0},
-		{"pos": Vector2(820, 400), "color_hint": 0},
-		{"pos": Vector2(880, 280), "color_hint": 0},
+		{"pos": Vector2(860, 300), "color_hint": 0},
+		{"pos": Vector2(920, 400), "color_hint": 0},
 		# Fork 2
-		{"pos": Vector2(930, 350), "color_hint": 0},
-		{"pos": Vector2(970, 240), "color_hint": 1},
-		{"pos": Vector2(970, 470), "color_hint": 2},
-		{"pos": Vector2(1020, 200), "color_hint": 1},
-		{"pos": Vector2(1020, 510), "color_hint": 2},
-		{"pos": Vector2(1060, 360), "color_hint": 0},  # rejoin
+		{"pos": Vector2(970, 350), "color_hint": 0},
+		{"pos": Vector2(1010, 240), "color_hint": 1},
+		{"pos": Vector2(1010, 470), "color_hint": 2},
+		{"pos": Vector2(1060, 200), "color_hint": 1},
+		{"pos": Vector2(1060, 510), "color_hint": 2},
+		{"pos": Vector2(1100, 360), "color_hint": 0},  # rejoin
 		# Phase 3 — intense final stretch
-		{"pos": Vector2(1100, 300), "color_hint": 0},
-		{"pos": Vector2(1140, 400), "color_hint": 0},
-		{"pos": Vector2(1180, 340), "color_hint": 0},  # goal
+		{"pos": Vector2(1140, 300), "color_hint": 0},
+		{"pos": Vector2(1160, 400), "color_hint": 0},
+		{"pos": Vector2(1180, 360), "color_hint": 0},  # goal
 	]
 	waypoints = path_points
 
 
 func _build_obstacles() -> void:
-	# Guilt Walls — block the path, need both players to dissolve
+	# Guilt Walls — block the path, need both players to dissolve (5 total)
 	guilt_walls = [
-		{"pos": Vector2(430, 370), "width": 60.0, "height": 100.0, "hp": 2.5, "max_hp": 2.5, "active": true},
-		{"pos": Vector2(750, 340), "width": 55.0, "height": 110.0, "hp": 2.0, "max_hp": 2.0, "active": true},
-		{"pos": Vector2(1070, 350), "width": 70.0, "height": 120.0, "hp": 1.8, "max_hp": 1.8, "active": true},
+		{"pos": Vector2(300, 200), "width": 50.0, "height": 90.0, "hp": 2.0, "max_hp": 2.0, "active": true},
+		{"pos": Vector2(300, 520), "width": 50.0, "height": 90.0, "hp": 2.0, "max_hp": 2.0, "active": true},
+		{"pos": Vector2(570, 370), "width": 60.0, "height": 100.0, "hp": 2.5, "max_hp": 2.5, "active": true},
+		{"pos": Vector2(860, 340), "width": 55.0, "height": 110.0, "hp": 2.0, "max_hp": 2.0, "active": true},
+		{"pos": Vector2(1110, 350), "width": 70.0, "height": 120.0, "hp": 1.8, "max_hp": 1.8, "active": true},
 	]
 
 	# Memory Wisps — golden collectibles
 	wisps = [
-		{"pos": Vector2(300, 280), "collected": false, "orbit_center": Vector2(300, 280), "orbit_radius": 25.0, "orbit_speed": 1.2, "orbit_offset": 0.0},
-		{"pos": Vector2(660, 360), "collected": false, "orbit_center": Vector2(660, 360), "orbit_radius": 20.0, "orbit_speed": 0.9, "orbit_offset": 1.5},
-		{"pos": Vector2(930, 320), "collected": false, "orbit_center": Vector2(930, 320), "orbit_radius": 22.0, "orbit_speed": 1.1, "orbit_offset": 3.0},
-		{"pos": Vector2(1140, 380), "collected": false, "orbit_center": Vector2(1140, 380), "orbit_radius": 18.0, "orbit_speed": 1.4, "orbit_offset": 4.5},
+		{"pos": Vector2(460, 360), "collected": false, "orbit_center": Vector2(460, 360), "orbit_radius": 25.0, "orbit_speed": 1.2, "orbit_offset": 0.0},
+		{"pos": Vector2(800, 360), "collected": false, "orbit_center": Vector2(800, 360), "orbit_radius": 20.0, "orbit_speed": 0.9, "orbit_offset": 1.5},
+		{"pos": Vector2(970, 320), "collected": false, "orbit_center": Vector2(970, 320), "orbit_radius": 22.0, "orbit_speed": 1.1, "orbit_offset": 3.0},
+		{"pos": Vector2(1160, 380), "collected": false, "orbit_center": Vector2(1160, 380), "orbit_radius": 18.0, "orbit_speed": 1.4, "orbit_offset": 4.5},
 	]
 
-	# Drifting hazards (dark shapes)
+	# Drifting hazards (dark shapes) — 10 total, spread evenly
 	hazards = [
-		_make_hazard(Vector2(350, 420), 0.5, 30.0),
-		_make_hazard(Vector2(560, 310), 0.6, 35.0),
-		_make_hazard(Vector2(700, 460), 0.4, 28.0),
-		_make_hazard(Vector2(850, 240), 0.55, 32.0),
-		_make_hazard(Vector2(1000, 440), 0.45, 30.0),
-		_make_hazard(Vector2(1130, 280), 0.5, 25.0),
+		_make_hazard(Vector2(200, 150), 0.5, 30.0),
+		_make_hazard(Vector2(250, 550), 0.45, 28.0),
+		_make_hazard(Vector2(420, 300), 0.55, 32.0),
+		_make_hazard(Vector2(500, 450), 0.6, 35.0),
+		_make_hazard(Vector2(650, 310), 0.5, 30.0),
+		_make_hazard(Vector2(750, 480), 0.4, 28.0),
+		_make_hazard(Vector2(880, 240), 0.55, 32.0),
+		_make_hazard(Vector2(950, 450), 0.45, 30.0),
+		_make_hazard(Vector2(1050, 280), 0.5, 25.0),
+		_make_hazard(Vector2(1150, 440), 0.6, 30.0),
 	]
 
 
@@ -193,9 +231,9 @@ func _process(delta: float) -> void:
 func _update_game_phase() -> void:
 	# Determine escalation based on player progress (average X position)
 	var avg_x: float = (p1_pos.x + p2_pos.x) * 0.5
-	if avg_x < 450:
+	if avg_x < 300:
 		game_phase = 0  # Gentle
-	elif avg_x < 850:
+	elif avg_x < 700:
 		game_phase = 1  # Projectiles start
 	else:
 		game_phase = 2  # Intense
@@ -220,6 +258,7 @@ func _update_players(delta: float) -> void:
 		p1_pos += p1_dir.normalized() * speed
 	p1_pos.x = clampf(p1_pos.x, 20.0, 1260.0)
 	p1_pos.y = clampf(p1_pos.y, 20.0, 700.0)
+	p1_pos = _push_out_of_maze(p1_pos)
 
 	var p2_dir := Vector2.ZERO
 	if Input.is_action_pressed("p2_up"): p2_dir.y -= 1.0
@@ -230,6 +269,7 @@ func _update_players(delta: float) -> void:
 		p2_pos += p2_dir.normalized() * speed
 	p2_pos.x = clampf(p2_pos.x, 20.0, 1260.0)
 	p2_pos.y = clampf(p2_pos.y, 20.0, 700.0)
+	p2_pos = _push_out_of_maze(p2_pos)
 
 	# Collision with active guilt walls
 	for wall: Dictionary in guilt_walls:
@@ -248,6 +288,30 @@ func _update_players(delta: float) -> void:
 			p2_pos += push
 
 
+
+func _push_out_of_maze(pos: Vector2) -> Vector2:
+	# Push a point out of all maze walls, returning the corrected position.
+	for wall: Rect2 in maze_walls:
+		if wall.has_point(pos):
+			# Find nearest edge to push to
+			var left_dist: float = absf(pos.x - wall.position.x)
+			var right_dist: float = absf(pos.x - (wall.position.x + wall.size.x))
+			var top_dist: float = absf(pos.y - wall.position.y)
+			var bottom_dist: float = absf(pos.y - (wall.position.y + wall.size.y))
+
+			var min_dist: float = minf(minf(left_dist, right_dist), minf(top_dist, bottom_dist))
+
+			if min_dist == left_dist:
+				pos.x = wall.position.x - 1.0
+			elif min_dist == right_dist:
+				pos.x = wall.position.x + wall.size.x + 1.0
+			elif min_dist == top_dist:
+				pos.y = wall.position.y - 1.0
+			else:
+				pos.y = wall.position.y + wall.size.y + 1.0
+	return pos
+
+
 func _update_hazards() -> void:
 	for h: Dictionary in hazards:
 		var bp: Vector2 = h.base_pos
@@ -261,11 +325,15 @@ func _update_hazards() -> void:
 
 
 func _update_projectiles(delta: float) -> void:
-	if game_phase == 0:
-		return  # No projectiles in gentle phase
+	# Phase 0: gentle — spawn slowly, only cold/warm shards
+	# Phase 1: mid — spawn at medium rate, all types
+	# Phase 2: intense — fast spawns, faster projectiles
+	var spawn_interval: float
+	match game_phase:
+		0: spawn_interval = 3.0
+		1: spawn_interval = 1.5
+		_: spawn_interval = 0.8
 
-	# Spawn projectiles
-	var spawn_interval: float = 2.5 if game_phase == 1 else 1.3
 	projectile_timer -= delta
 	if projectile_timer <= 0:
 		projectile_timer = spawn_interval + randf_range(-0.3, 0.4)
@@ -296,9 +364,9 @@ func _update_projectiles(delta: float) -> void:
 func _spawn_projectile() -> void:
 	# Choose type based on game phase
 	var proj_type: int
-	if game_phase == 1:
+	if game_phase == 0:
 		proj_type = randi() % 2  # cold or warm only
-	else:
+	elif game_phase == 1:
 		var roll: float = randf()
 		if roll < 0.35:
 			proj_type = 0  # cold shard
@@ -306,6 +374,14 @@ func _spawn_projectile() -> void:
 			proj_type = 1  # warm ember
 		else:
 			proj_type = 2  # shadow orb
+	else:
+		var roll: float = randf()
+		if roll < 0.35:
+			proj_type = 0
+		elif roll < 0.7:
+			proj_type = 1
+		else:
+			proj_type = 2
 
 	# Spawn from screen edges, aimed toward the path/players
 	var target: Vector2 = (p1_pos + p2_pos) * 0.5 + Vector2(randf_range(-80, 80), randf_range(-80, 80))
@@ -317,7 +393,11 @@ func _spawn_projectile() -> void:
 		2: spawn_pos = Vector2(-30, randf_range(0, 720))        # left
 		3: spawn_pos = Vector2(1310, randf_range(0, 720))       # right
 
-	var vel: Vector2 = (target - spawn_pos).normalized() * PROJECTILE_SPEED
+	var speed_mult: float = 1.0
+	if game_phase == 2:
+		speed_mult = 1.4
+
+	var vel: Vector2 = (target - spawn_pos).normalized() * PROJECTILE_SPEED * speed_mult
 	# Shadow orbs move slower
 	if proj_type == 2:
 		vel *= 0.6
@@ -490,6 +570,7 @@ func _draw() -> void:
 		return
 
 	_draw_path_markers()
+	_draw_maze_walls()
 	_draw_guilt_walls()
 	_draw_wisps()
 	_draw_hazards()
@@ -604,6 +685,22 @@ func _draw_path_markers() -> void:
 		draw_circle(pos, 4.0, col)
 		if vis > 0.1:
 			draw_arc(pos, 8.0, 0, TAU, 12, Color(col.r, col.g, col.b, vis * 0.25), 1.0)
+
+
+func _draw_maze_walls() -> void:
+	for wall: Rect2 in maze_walls:
+		var vis: float = _get_visibility(wall.get_center())
+		if vis > 0.05:
+			# Dark wall body
+			draw_rect(wall, Color(0.15, 0.12, 0.18, vis * 0.9))
+			# Top edge highlight
+			draw_line(wall.position, wall.position + Vector2(wall.size.x, 0), Color(0.25, 0.2, 0.3, vis * 0.5), 1.5)
+			# Bottom edge shadow
+			draw_line(
+				wall.position + Vector2(0, wall.size.y),
+				wall.position + Vector2(wall.size.x, wall.size.y),
+				Color(0.08, 0.06, 0.1, vis * 0.4), 1.0
+			)
 
 
 func _draw_guilt_walls() -> void:
