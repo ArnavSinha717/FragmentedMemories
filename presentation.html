@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fractured Memories — Hackathon Presentation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #0a0a14;
+    color: #c8c8d4;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  .slide {
+    display: none;
+    width: 100vw;
+    height: 100vh;
+    padding: 60px 100px;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slide.active { display: flex; }
+
+  /* Title Slide */
+  .slide-title {
+    align-items: center;
+    text-align: center;
+    background: radial-gradient(ellipse at center, #1a1530 0%, #0a0a14 70%);
+  }
+
+  .slide-title h1 {
+    font-size: 72px;
+    font-weight: 700;
+    letter-spacing: 8px;
+    margin-bottom: 10px;
+  }
+
+  .slide-title h1 .cold { color: #7888cc; }
+  .slide-title h1 .warm { color: #e08855; }
+  .slide-title .crack {
+    width: 2px;
+    height: 60px;
+    background: linear-gradient(transparent, #666, transparent);
+    margin: -5px auto 15px;
+  }
+
+  .slide-title .tagline {
+    font-size: 22px;
+    color: #888;
+    font-weight: 300;
+    font-style: italic;
+  }
+
+  .slide-title .subtitle {
+    margin-top: 40px;
+    font-size: 16px;
+    color: #555;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  /* Standard slides */
+  .slide h2 {
+    font-size: 42px;
+    font-weight: 600;
+    margin-bottom: 40px;
+    color: #e0dce8;
+  }
+
+  .slide h2 .accent-cold { color: #7888cc; }
+  .slide h2 .accent-warm { color: #e08855; }
+
+  .slide p, .slide li {
+    font-size: 22px;
+    line-height: 1.7;
+    color: #aaa;
+  }
+
+  .slide p { margin-bottom: 16px; }
+
+  .slide ul {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .slide li {
+    padding: 8px 0;
+    padding-left: 24px;
+    position: relative;
+  }
+
+  .slide li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 16px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #555;
+  }
+
+  .slide li.cold::before { background: #7888cc; }
+  .slide li.warm::before { background: #e08855; }
+  .slide li.gold::before { background: #c8a84e; }
+
+  .slide .highlight {
+    color: #e0dce8;
+    font-weight: 600;
+  }
+
+  .slide .dim { color: #666; font-size: 18px; }
+
+  /* Quote slide */
+  .slide-quote {
+    align-items: center;
+    text-align: center;
+    background: radial-gradient(ellipse at center, #181420 0%, #0a0a14 70%);
+  }
+
+  .slide-quote blockquote {
+    font-size: 32px;
+    color: #c8c0b8;
+    font-style: italic;
+    max-width: 700px;
+    line-height: 1.6;
+    margin-bottom: 30px;
+  }
+
+  .slide-quote .attrib {
+    font-size: 16px;
+    color: #666;
+    font-style: normal;
+  }
+
+  /* Two column */
+  .two-col {
+    display: flex;
+    gap: 60px;
+    margin-top: 10px;
+  }
+
+  .two-col .col {
+    flex: 1;
+    padding: 30px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .two-col .col h3 {
+    font-size: 26px;
+    margin-bottom: 20px;
+    font-weight: 600;
+  }
+
+  .two-col .col.blame h3 { color: #7888cc; }
+  .two-col .col.denial h3 { color: #e08855; }
+
+  .two-col .col p, .two-col .col li {
+    font-size: 18px;
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 14px 20px;
+    font-size: 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  th {
+    color: #999;
+    font-weight: 400;
+    text-transform: uppercase;
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+
+  td:first-child { color: #e0dce8; font-weight: 600; }
+
+  /* Three acts */
+  .acts {
+    display: flex;
+    gap: 30px;
+    margin-top: 20px;
+  }
+
+  .act {
+    flex: 1;
+    padding: 30px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .act h3 {
+    font-size: 20px;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  .act.conflict h3 { color: #cc5555; }
+  .act.coop h3 { color: #7888cc; }
+  .act.accept h3 { color: #c8a84e; }
+
+  .act p { font-size: 16px; color: #888; }
+
+  /* Tech */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 20px;
+  }
+
+  .tech-item {
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .tech-item .label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #666;
+    margin-bottom: 6px;
+  }
+
+  .tech-item .value {
+    font-size: 18px;
+    color: #c8c8d4;
+  }
+
+  /* Nav */
+  .nav {
+    position: fixed;
+    bottom: 30px;
+    right: 40px;
+    display: flex;
+    gap: 12px;
+    z-index: 100;
+  }
+
+  .nav button {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #aaa;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s;
+  }
+
+  .nav button:hover {
+    background: rgba(255,255,255,0.15);
+    color: #e0dce8;
+  }
+
+  .slide-counter {
+    position: fixed;
+    bottom: 35px;
+    left: 40px;
+    font-size: 14px;
+    color: #444;
+    z-index: 100;
+  }
+
+  /* Animations */
+  .slide.active { animation: fadeIn 0.5s ease-out; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .decorative-line {
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(to right, #7888cc, #e08855);
+    margin-bottom: 30px;
+  }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: Title -->
+<div class="slide slide-title active" id="s1">
+  <h1><span class="cold">FRACTURED</span></h1>
+  <div class="crack"></div>
+  <h1><span class="warm">MEMORIES</span></h1>
+  <p class="tagline">A 2-player game about grief, memory, and acceptance</p>
+  <p class="subtitle">Two halves. One fractured mind.</p>
+</div>
+
+<!-- SLIDE 2: Problem -->
+<div class="slide" id="s2">
+  <div class="decorative-line"></div>
+  <h2>The Problem</h2>
+  <p class="highlight" style="font-size:28px; margin-bottom:30px;">Grief is not a single emotion.</p>
+  <p>When we lose someone, our mind doesn't process it cleanly. It fractures &mdash; into blame, denial, anger, acceptance.</p>
+  <p>These fragments fight each other, each believing they hold the truth.</p>
+  <p style="margin-top:30px; color:#888;">Most games treat mental health as a <em>mechanic</em>. We wanted to make a game where <span class="highlight">the mechanic IS the message</span>.</p>
+</div>
+
+<!-- SLIDE 3: Concept -->
+<div class="slide" id="s3">
+  <div class="decorative-line"></div>
+  <h2>The Concept</h2>
+  <p class="highlight" style="font-size:26px; margin-bottom:30px;">What if two players each controlled a different side of the same grieving mind?</p>
+  <div class="two-col">
+    <div class="col blame">
+      <h3>BLAME (Player 1)</h3>
+      <p>The weight of what happened.</p>
+      <p>Cold. Heavy. Unforgiving.</p>
+      <p class="dim">A stone golem carrying the burden.</p>
+    </div>
+    <div class="col denial">
+      <h3>DENIAL (Player 2)</h3>
+      <p>The refusal to remember.</p>
+      <p>Warm. Quick. Desperate.</p>
+      <p class="dim">A rogue knight running from the truth.</p>
+    </div>
+  </div>
+  <p style="text-align:center; margin-top:30px; color:#888;">They start as enemies. They end as one.</p>
+</div>
+
+<!-- SLIDE 4: Three Acts -->
+<div class="slide" id="s4">
+  <div class="decorative-line"></div>
+  <h2>Three Acts</h2>
+  <div class="acts">
+    <div class="act conflict">
+      <h3>ACT 1 &mdash; CONFLICT</h3>
+      <p>Players fight each other.</p>
+      <p>The winner's emotion determines which memory surfaces first.</p>
+      <p style="margin-top:10px"><em>Blame winning = painful memories first.</em></p>
+    </div>
+    <div class="act coop">
+      <h3>ACT 2 &mdash; COOPERATION</h3>
+      <p>Players realize they're the same person.</p>
+      <p>Must work together. Platforms only exist when both are near.</p>
+      <p style="margin-top:10px"><em>Darkness only lifts when you stay close.</em></p>
+    </div>
+    <div class="act accept">
+      <h3>ACT 3 &mdash; ACCEPTANCE</h3>
+      <p>Both fight GUILT together.</p>
+      <p>Only synchronized attacks deal damage.</p>
+      <p style="margin-top:10px"><em>Healing requires facing the truth together.</em></p>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 5: Story -->
+<div class="slide" id="s5">
+  <div class="decorative-line"></div>
+  <h2>The Story</h2>
+  <p style="font-size:26px; color:#c8c0b8; margin-bottom:30px;">Two best friends. One night changed everything.</p>
+  <ul>
+    <li>From the grief, memory fragments surface &mdash; but they're fractured</li>
+    <li class="warm">Happy times together &bull; A promise made</li>
+    <li class="cold">Tears that won't stop &bull; The accident</li>
+    <li class="gold">Who wins the competitive rounds determines the ORDER memories are revealed</li>
+  </ul>
+  <p style="margin-top:30px; color:#888;">Every playthrough tells the same story &mdash; but the emotional journey is different.</p>
+</div>
+
+<!-- SLIDE 6: Game Modes -->
+<div class="slide" id="s6">
+  <div class="decorative-line"></div>
+  <h2>Game Modes</h2>
+  <table>
+    <tr><th>Mode</th><th>Type</th><th>Core Mechanic</th></tr>
+    <tr><td>Clash of Emotions</td><td>Competitive</td><td>Asymmetric fighter &mdash; heavy brawler vs quick trickster</td></tr>
+    <tr><td>Gravity Run</td><td>Competitive</td><td>Flip gravity to catch memory fragments mid-flight</td></tr>
+    <tr><td>Carrying the Weight</td><td>Cooperative</td><td>Ghost platforms only solidify when the matching player is near</td></tr>
+    <tr><td>Into the Fog</td><td>Cooperative</td><td>Dark maze &mdash; separated start, must find each other</td></tr>
+    <tr><td>GUILT Boss Fight</td><td>Cooperative</td><td>Synchronized attacks only &mdash; solo hits do nothing</td></tr>
+  </table>
+</div>
+
+<!-- SLIDE 7: Adaptive Narrative -->
+<div class="slide" id="s7">
+  <div class="decorative-line"></div>
+  <h2><span class="accent-cold">Adaptive</span> Narrative</h2>
+  <p class="highlight" style="font-size:24px; margin-bottom:30px;">The game remembers who wins.</p>
+  <ul>
+    <li class="cold">Blame wins Round 1 &rarr; painful memory first &rarr; heavier emotional start</li>
+    <li class="warm">Denial wins Round 1 &rarr; happy memory first &rarr; the pain hits harder later</li>
+    <li class="gold">Mixed results &rarr; the most emotionally complex path</li>
+  </ul>
+  <p style="margin-top:30px;">4 possible fragment orderings. Post-fragment dialogue adapts based on what's been seen before.</p>
+  <p class="dim" style="margin-top:10px;">Same ending. Different emotional journeys.</p>
+</div>
+
+<!-- SLIDE 8: Design Philosophy -->
+<div class="slide" id="s8">
+  <div class="decorative-line"></div>
+  <h2>Design Philosophy</h2>
+  <p class="highlight" style="font-size:24px; margin-bottom:30px;">Every mechanic serves the narrative.</p>
+  <ul>
+    <li>Competitive &rarr; Blame and Denial are in conflict</li>
+    <li>Winner shapes memory order &rarr; emotions control what we remember</li>
+    <li>Ghost platforms &rarr; you literally need the other person to move forward</li>
+    <li>Fog walk &rarr; you can't see without each other</li>
+    <li>Boss fight &rarr; you can only hurt GUILT together</li>
+    <li>Fatality &rarr; they merge into one person</li>
+  </ul>
+  <p style="margin-top:30px; color:#c8a84e; font-weight:600;">Nothing is arbitrary. The gameplay IS the therapy.</p>
+</div>
+
+<!-- SLIDE 9: Tech -->
+<div class="slide" id="s9">
+  <div class="decorative-line"></div>
+  <h2>Technical Highlights</h2>
+  <div class="tech-grid">
+    <div class="tech-item">
+      <div class="label">Engine</div>
+      <div class="value">Godot 4.6.1 (open source)</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">Language</div>
+      <div class="value">GDScript &mdash; fully typed</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">Rendering</div>
+      <div class="value">All visuals via custom _draw() calls</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">Architecture</div>
+      <div class="value">18-phase state machine (GameManager autoload)</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">Sprites</div>
+      <div class="value">Custom sheet renderer with animation, tinting, flip</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">Input</div>
+      <div class="value">Keyboard + dual controller with separate jump/move</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">UI Systems</div>
+      <div class="value">Pause menu, instructions, winner screens</div>
+    </div>
+    <div class="tech-item">
+      <div class="label">Narrative</div>
+      <div class="value">Adaptive dialogue with context-aware branching</div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 10: What's Different -->
+<div class="slide" id="s10">
+  <div class="decorative-line"></div>
+  <h2>What Makes This <span class="accent-warm">Different</span></h2>
+  <ul>
+    <li class="gold"><span class="highlight">The mechanic IS the message</span> &mdash; gameplay makes you feel the emotions, not cutscenes</li>
+    <li class="cold"><span class="highlight">Asymmetric multiplayer</span> &mdash; each player has a genuinely different experience</li>
+    <li class="warm"><span class="highlight">Adaptive narrative</span> &mdash; competitive results change the emotional arc</li>
+    <li class="gold"><span class="highlight">Cooperative climax</span> &mdash; teaches collaboration through mechanics</li>
+    <li><span class="highlight">Replayable</span> &mdash; 4 fragment orderings, each with unique dialogue paths</li>
+  </ul>
+</div>
+
+<!-- SLIDE 11: Demo -->
+<div class="slide" id="s11" style="align-items:center; text-align:center;">
+  <h2 style="font-size:56px; margin-bottom:20px;">Live Demo</h2>
+  <p style="font-size:20px; color:#666; max-width:500px;">Main Menu &rarr; Fight &rarr; Memory Reveal &rarr; Fog Walk &rarr; Boss Fight</p>
+</div>
+
+<!-- SLIDE 12: Quote -->
+<div class="slide slide-quote" id="s12">
+  <blockquote>"She didn't save you so you could spend your life drowning."</blockquote>
+  <blockquote style="font-size:26px;">"Live. Remember and honour her by living."</blockquote>
+  <p class="attrib" style="margin-top:40px;">For everyone who carries someone they've lost.</p>
+</div>
+
+<!-- SLIDE 13: Future -->
+<div class="slide" id="s13">
+  <div class="decorative-line"></div>
+  <h2>Future Scope</h2>
+  <div class="two-col">
+    <div class="col">
+      <h3 style="color:#999; font-size:20px;">Near Term</h3>
+      <ul>
+        <li>Original soundtrack reflecting emotional states</li>
+        <li>Sound effects for combat and narrative</li>
+        <li>More minigame variants</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3 style="color:#999; font-size:20px;">Long Term</h3>
+      <ul>
+        <li>Online multiplayer</li>
+        <li>Accessibility options / colorblind modes</li>
+        <li>Mobile touch controls</li>
+        <li>Localization</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 14: End -->
+<div class="slide slide-title" id="s14">
+  <h1 style="font-size:48px;"><span class="cold">FRACTURED</span> <span class="warm">MEMORIES</span></h1>
+  <div class="crack"></div>
+  <p class="tagline">A game about the hardest thing we do &mdash;<br>learning to live after loss.</p>
+  <p class="subtitle" style="margin-top:50px;">Thank you.</p>
+</div>
+
+<!-- Navigation -->
+<div class="slide-counter"><span id="current">1</span> / <span id="total">14</span></div>
+<div class="nav">
+  <button onclick="prev()">&#8592; Prev</button>
+  <button onclick="next()">Next &#8594;</button>
+</div>
+
+<script>
+  let current = 0;
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  document.getElementById('total').textContent = total;
+
+  function show(n) {
+    slides[current].classList.remove('active');
+    current = (n + total) % total;
+    slides[current].classList.add('active');
+    document.getElementById('current').textContent = current + 1;
+  }
+
+  function next() { show(current + 1); }
+  function prev() { show(current - 1); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  });
+</script>
+
+</body>
+</html>
