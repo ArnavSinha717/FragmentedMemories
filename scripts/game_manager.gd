@@ -128,12 +128,12 @@ func draw_blame_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
 	var tint := mod * Color(1.3, 1.35, 1.8)
 	var draw_pos := Vector2(pos.x, pos.y + 25.0 * scl)
-	# Neon glow behind character
-	var glow_center := Vector2(pos.x, pos.y - 30.0 * scl)
-	canvas.draw_circle(glow_center, 50.0 * scl, Color(0.3, 0.35, 0.8, 0.06 * mod.a))
-	canvas.draw_circle(glow_center, 30.0 * scl, Color(0.4, 0.45, 0.9, 0.1 * mod.a))
-	canvas.draw_circle(glow_center, 15.0 * scl, Color(0.5, 0.55, 1.0, 0.08 * mod.a))
+	# Silhouette glow: draw sprite slightly larger in glow color behind the main sprite
 	if golem_sheet:
+		var glow_col := Color(0.4, 0.5, 1.0, 0.25 * mod.a)
+		var glow_scl: float = scl * 1.08
+		var glow_pos := Vector2(pos.x, pos.y + 25.0 * glow_scl)
+		_draw_sheet_frame(canvas, golem_sheet, glow_pos, GOLEM_FW, GOLEM_FH, scol, srow, glow_scl, flip_h, glow_col)
 		_draw_sheet_frame(canvas, golem_sheet, draw_pos, GOLEM_FW, GOLEM_FH, scol, srow, scl, flip_h, tint)
 	else:
 		var hw: float = 18.0 * scl
@@ -146,10 +146,11 @@ func draw_blame_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
 	var tint := mod * Color(1.3, 1.35, 1.8)
 	var draw_pos := Vector2(pos.x, pos.y - 25.0 * scl)
-	var glow_center := Vector2(pos.x, pos.y + 30.0 * scl)
-	canvas.draw_circle(glow_center, 50.0 * scl, Color(0.3, 0.35, 0.8, 0.06 * mod.a))
-	canvas.draw_circle(glow_center, 30.0 * scl, Color(0.4, 0.45, 0.9, 0.1 * mod.a))
 	if golem_sheet:
+		var glow_col := Color(0.4, 0.5, 1.0, 0.25 * mod.a)
+		var glow_scl: float = scl * 1.08
+		var glow_pos := Vector2(pos.x, pos.y - 25.0 * glow_scl)
+		_draw_sheet_frame(canvas, golem_sheet, glow_pos, GOLEM_FW, GOLEM_FH, scol, srow, glow_scl, flip_h, glow_col, true)
 		_draw_sheet_frame(canvas, golem_sheet, draw_pos, GOLEM_FW, GOLEM_FH, scol, srow, scl, flip_h, tint, true)
 	else:
 		var hw: float = 18.0 * scl
@@ -161,12 +162,11 @@ func draw_blame_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow
 func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
 	var tint := mod * Color(2.5, 1.6, 0.8)
-	# Neon glow behind character
-	var glow_center := Vector2(pos.x, pos.y - 20.0 * scl)
-	canvas.draw_circle(glow_center, 45.0 * scl, Color(0.9, 0.5, 0.2, 0.06 * mod.a))
-	canvas.draw_circle(glow_center, 25.0 * scl, Color(1.0, 0.6, 0.25, 0.1 * mod.a))
-	canvas.draw_circle(glow_center, 12.0 * scl, Color(1.0, 0.7, 0.3, 0.08 * mod.a))
+	# Silhouette glow: draw sprite slightly larger in glow color behind
 	if rogue_sheet:
+		var glow_col := Color(1.0, 0.6, 0.2, 0.3 * mod.a)
+		var glow_scl: float = scl * 1.1
+		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, glow_scl, flip_h, glow_col)
 		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, tint)
 	else:
 		var r: float = 18.0 * scl
@@ -177,10 +177,10 @@ func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 func draw_denial_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
 	var tint := mod * Color(2.5, 1.6, 0.8)
-	var glow_center := Vector2(pos.x, pos.y + 20.0 * scl)
-	canvas.draw_circle(glow_center, 45.0 * scl, Color(0.9, 0.5, 0.2, 0.06 * mod.a))
-	canvas.draw_circle(glow_center, 25.0 * scl, Color(1.0, 0.6, 0.25, 0.1 * mod.a))
 	if rogue_sheet:
+		var glow_col := Color(1.0, 0.6, 0.2, 0.3 * mod.a)
+		var glow_scl: float = scl * 1.1
+		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, glow_scl, flip_h, glow_col, true)
 		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, tint, true)
 	else:
 		var r: float = 18.0 * scl
