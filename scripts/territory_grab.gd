@@ -14,8 +14,8 @@ extends Control
 # ── Layout ──────────────────────────────────────────────────────────────────
 const SCREEN_W    := 1280.0
 const SCREEN_H    :=  720.0
-const FLOOR_Y     :=  680.0   # y of floor surface (player feet rest here)
-const CEILING_Y   :=   40.0   # y of ceiling surface (player head touches here)
+const FLOOR_Y     :=  670.0   # y of floor surface (player feet rest here)
+const CEILING_Y   :=   50.0   # y of ceiling surface (player head touches here)
 const FLOOR_THICK :=   40.0
 const CEIL_THICK  :=   40.0
 const PLAYER_H    :=   44.0   # visual height
@@ -33,7 +33,7 @@ const MATCH_TIME :=   35.0
 const FRAG_SPD_BASE  := 230.0
 const FRAG_SPD_VAR   :=  70.0
 const FRAG_SIZE      :=  18.0
-const CATCH_RADIUS   :=  44.0
+const CATCH_RADIUS   :=  55.0
 const SPAWN_BASE     :=   0.5
 const SPAWN_VAR      :=   0.3
 
@@ -41,7 +41,7 @@ const SPAWN_VAR      :=   0.3
 const PIT_W_MIN      :=  80.0
 const PIT_W_MAX      := 160.0
 const PIT_SPD        := 235.0
-const PIT_SPAWN_INT  :=   2.0   # base interval between pits per surface
+const PIT_SPAWN_INT  :=   4.0   # base interval between pits per surface
 const PIT_INVINCIBLE :=   1.0   # seconds of immunity after hitting a pit
 
 # ── Player state ──────────────────────────────────────────────────────────────
@@ -546,7 +546,7 @@ func _draw_pit_fx() -> void:
 # All y-offsets use: surface_y + d * offset, with rects normalised so height is always positive.
 
 func _draw_blame(pos: Vector2, facing: float, grav: float) -> void:
-	var flip_v: bool = grav < 0.0  # on ceiling = upside down
+	var flip_v: bool = grav < 0.0
 	var flip_h: bool = facing < 0.0
 	var g_row: int = 5
 	var g_frame: int = 0
@@ -560,10 +560,9 @@ func _draw_blame(pos: Vector2, facing: float, grav: float) -> void:
 		g_row = 5
 		g_frame = GameManager.anim_frame(anim_time, 4, 6.0)
 	if flip_v:
-		# Draw upside-down: offset pos so feet are at ceiling surface
-		GameManager.draw_blame_sprite(self, Vector2(pos.x, pos.y), g_frame, g_row, 1.4, flip_h)
+		GameManager.draw_blame_sprite_flipped(self, pos, g_frame, g_row, 1.0, flip_h)
 	else:
-		GameManager.draw_blame_sprite(self, pos, g_frame, g_row, 1.4, flip_h)
+		GameManager.draw_blame_sprite(self, pos, g_frame, g_row, 1.0, flip_h)
 
 
 func _draw_denial(pos: Vector2, facing: float, grav: float) -> void:
@@ -581,9 +580,9 @@ func _draw_denial(pos: Vector2, facing: float, grav: float) -> void:
 		r_row = 0
 		r_frame = GameManager.anim_frame(anim_time, 2, 3.0)
 	if flip_v:
-		GameManager.draw_denial_sprite(self, Vector2(pos.x, pos.y), r_frame, r_row, 2.2, flip_h)
+		GameManager.draw_denial_sprite_flipped(self, pos, r_frame, r_row, 1.6, flip_h)
 	else:
-		GameManager.draw_denial_sprite(self, pos, r_frame, r_row, 2.2, flip_h)
+		GameManager.draw_denial_sprite(self, pos, r_frame, r_row, 1.6, flip_h)
 
 
 ## Draw a rect whose top-left is determined by direction d.

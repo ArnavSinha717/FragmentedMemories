@@ -134,6 +134,18 @@ func draw_blame_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		canvas.draw_rect(Rect2(pos.x - hw, pos.y - hh * 2, hw * 2, hh * 2), mod * get_blame_color())
 
 
+## Draw Blame sprite vertically flipped (for ceiling). pos = head attachment point.
+func draw_blame_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
+		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
+	var tint := mod * Color(0.65, 0.7, 1.0)
+	if golem_sheet:
+		_draw_sheet_frame(canvas, golem_sheet, pos, GOLEM_FW, GOLEM_FH, scol, srow, scl, flip_h, tint, true)
+	else:
+		var hw: float = 18.0 * scl
+		var hh: float = 36.0 * scl
+		canvas.draw_rect(Rect2(pos.x - hw, pos.y, hw * 2, hh * 2), mod * get_blame_color())
+
+
 ## Draw Denial (Rogue) sprite at pos (feet position).
 func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
@@ -146,15 +158,33 @@ func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		canvas.draw_circle(Vector2(pos.x, pos.y - r), r, mod * get_denial_color())
 
 
+## Draw Denial sprite vertically flipped (for ceiling). pos = head attachment point.
+func draw_denial_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
+		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
+	var tint := mod * Color(1.0, 0.75, 0.55)
+	if rogue_sheet:
+		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, tint, true)
+	else:
+		var r: float = 18.0 * scl
+		canvas.draw_circle(Vector2(pos.x, pos.y + r), r, mod * get_denial_color())
+
+
 func _draw_sheet_frame(canvas: CanvasItem, tex: Texture2D, pos: Vector2,
-		fw: int, fh: int, scol: int, srow: int, scl: float, flip_h: bool, mod: Color) -> void:
+		fw: int, fh: int, scol: int, srow: int, scl: float, flip_h: bool, mod: Color,
+		flip_v: bool = false) -> void:
 	var src := Rect2(scol * fw, srow * fh, fw, fh)
 	var dw: float = float(fw) * scl
 	var dh: float = float(fh) * scl
 	# pos is feet — sprite draws upward from feet, centered horizontally
-	var dest := Rect2(pos.x - dw * 0.5, pos.y - dh, dw, dh)
+	var dest: Rect2
+	if flip_v:
+		# Inverted: sprite draws DOWNWARD from head position
+		dest = Rect2(pos.x - dw * 0.5, pos.y, dw, dh)
+		src.position.y += src.size.y
+		src.size.y = -src.size.y
+	else:
+		dest = Rect2(pos.x - dw * 0.5, pos.y - dh, dw, dh)
 	if flip_h:
-		# Flip the source region instead of the dest to avoid offset bugs
 		src.position.x += src.size.x
 		src.size.x = -src.size.x
 	canvas.draw_texture_rect_region(tex, dest, src, mod)
