@@ -130,13 +130,20 @@ func _draw() -> void:
 		var body_size: float = 90.0 * guilt_alpha
 		draw_circle(center, body_size, Color(0.06, 0.04, 0.08, guilt_alpha * 0.9))
 		draw_circle(center, body_size * 0.65, Color(0.1, 0.06, 0.12, guilt_alpha * 0.6))
-		# Tendrils reaching outward
+		# Tendrils reaching outward (curved, organic)
 		for i in range(8):
-			var angle := (float(i) / 8.0) * TAU + pulse_time * 0.2
+			var base_angle := (float(i) / 8.0) * TAU + pulse_time * 0.2
 			var length: float = (150.0 + sin(pulse_time * 1.2 + float(i)) * 40.0) * guilt_alpha
-			var tendril_end := center + Vector2(cos(angle), sin(angle)) * length
-			draw_line(center, tendril_end, Color(0.12, 0.06, 0.15, guilt_alpha * 0.5), 3.0)
-			draw_circle(tendril_end, 6, Color(0.15, 0.08, 0.18, guilt_alpha * 0.3))
+			var prev_pt := center
+			for seg: int in range(1, 7):
+				var t: float = float(seg) / 6.0
+				var wave: float = sin(pulse_time * 1.5 + float(i) * 2.0 + t * 5.0) * 20.0 * t
+				var seg_pos := center + Vector2(cos(base_angle), sin(base_angle)) * length * t
+				seg_pos += Vector2(-sin(base_angle), cos(base_angle)) * wave
+				var seg_thick: float = (5.0 - t * 3.5) * guilt_alpha
+				draw_line(prev_pt, seg_pos, Color(0.14, 0.07, 0.18, guilt_alpha * (0.5 - t * 0.2)), maxf(seg_thick, 1.0))
+				prev_pt = seg_pos
+			draw_circle(prev_pt, 5.0 * guilt_alpha, Color(0.18, 0.1, 0.22, guilt_alpha * 0.35))
 		# Eyes — glowing red
 		var eye_glow: float = sin(pulse_time * 2.5) * 0.15 + 0.7
 		draw_circle(center + Vector2(-25, -15), 12 * guilt_alpha, Color(0.5, 0.1, 0.12, guilt_alpha * eye_glow))

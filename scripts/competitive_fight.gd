@@ -892,7 +892,7 @@ func _draw() -> void:
 		var cc := Color(0.65, 0.65, 0.75, ca)
 		var hl := Color(0.5, 0.5, 0.65, ca * 0.6)
 		# P1
-		draw_string(font, Vector2(80, 175), "BLAME — The Weight", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_blame_color_light(), ca))
+		draw_string(font, Vector2(80, 175), "BLAME — The Burden", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_blame_color_light(), ca))
 		draw_line(Vector2(80, 182), Vector2(310, 182), Color(GameManager.get_blame_color(), ca * 0.3), 1.0)
 		draw_string(font, Vector2(80, 205), "Move: WASD / Stick  |  Jump: W / A", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hl)
 		draw_string(font, Vector2(80, 225), "F / X : Guilt Slam (punch + shockwave)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)

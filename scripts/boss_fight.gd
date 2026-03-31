@@ -556,18 +556,44 @@ func _draw() -> void:
 	draw_circle(bp, boss_size * 0.65, Color(0.12, 0.08, 0.15, 0.6))
 	draw_circle(bp, boss_size * 0.3, Color(0.25, 0.08, 0.12, sin(pulse_time * 2.0) * 0.15 + 0.3))
 
-	# --- Tendrils ---
+	# --- Tendrils (curved, organic) ---
 	for i in range(boss_tendrils.size()):
-		var angle: float = boss_tendrils[i]
+		var base_angle: float = boss_tendrils[i]
 		var length: float = 100.0 + float(boss_phase) * 25.0 + sin(pulse_time + float(i)) * 20.0
-		var tend_end: Vector2 = bp + Vector2(cos(angle), sin(angle)) * length
-		draw_line(bp, tend_end, Color(0.15, 0.1, 0.18, 0.5), 2.5)
+		var segments: int = 8
+		var prev_pt: Vector2 = bp
+		var thickness: float = 6.0 + float(boss_phase) * 1.5
+		for seg: int in range(1, segments + 1):
+			var t: float = float(seg) / float(segments)
+			# Curve the tendril with sine wave
+			var wave: float = sin(pulse_time * 2.0 + float(i) * 1.5 + t * 4.0) * 15.0 * t
+			var seg_angle: float = base_angle + wave * 0.02
+			var seg_pos: Vector2 = bp + Vector2(cos(seg_angle), sin(seg_angle)) * length * t
+			seg_pos += Vector2(-sin(base_angle), cos(base_angle)) * wave
+			var seg_thick: float = thickness * (1.0 - t * 0.7)
+			var seg_alpha: float = 0.5 * (1.0 - t * 0.4)
+			draw_line(prev_pt, seg_pos, Color(0.18, 0.08, 0.22, seg_alpha), seg_thick)
+			# Inner glow on thicker segments
+			if seg_thick > 3.0:
+				draw_line(prev_pt, seg_pos, Color(0.3, 0.1, 0.15, seg_alpha * 0.3), seg_thick * 0.4)
+			prev_pt = seg_pos
+		# Tip blob
+		draw_circle(prev_pt, 4.0 + float(boss_phase), Color(0.25, 0.1, 0.15, 0.4))
 
 	# --- Tendril sweep ---
 	if tendril_sweep_active:
-		var sweep_end: Vector2 = bp + Vector2(cos(tendril_sweep_angle), sin(tendril_sweep_angle)) * tendril_sweep_length
-		draw_line(bp, sweep_end, Color(0.6, 0.15, 0.2, 0.7), 5.0)
-		draw_line(bp, sweep_end, Color(0.8, 0.2, 0.25, 0.3), 14.0)
+		var segments: int = 10
+		var prev_pt: Vector2 = bp
+		for seg: int in range(1, segments + 1):
+			var t: float = float(seg) / float(segments)
+			var wave: float = sin(pulse_time * 5.0 + t * 6.0) * 12.0 * t
+			var seg_pos: Vector2 = bp + Vector2(cos(tendril_sweep_angle), sin(tendril_sweep_angle)) * tendril_sweep_length * t
+			seg_pos += Vector2(-sin(tendril_sweep_angle), cos(tendril_sweep_angle)) * wave
+			var seg_thick: float = 12.0 * (1.0 - t * 0.5)
+			draw_line(prev_pt, seg_pos, Color(0.6, 0.15, 0.2, 0.7 * (1.0 - t * 0.3)), seg_thick)
+			draw_line(prev_pt, seg_pos, Color(0.8, 0.2, 0.25, 0.25), seg_thick * 2.0)
+			prev_pt = seg_pos
+		draw_circle(prev_pt, 8.0, Color(0.7, 0.2, 0.2, 0.6))
 
 	# --- Eyes ---
 	var eye_i: float = 0.6 + float(boss_phase) * 0.12 + sin(pulse_time * 2.5) * 0.1

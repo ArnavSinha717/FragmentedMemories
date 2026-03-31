@@ -237,57 +237,80 @@ func _draw_controls_screen(vp_size: Vector2, font: Font, title_size: int, body_s
 			is_cooperative_2 = true
 
 	if is_competitive_1:
-		phase_label = "PHASE: FIGHT"
+		phase_label = "CLASH OF EMOTIONS"
 		blame_lines = [
 			"BLAME (P1)",
-			"Move: WASD",
+			"Move: WASD  /  Left Stick",
 			"Jump: W  /  A button",
-			"Attack: F  /  X button",
-			"Heavy: G  /  Y button",
-			"Dodge: R  /  B button",
-			"Special: L2+R2",
+			"Guilt Slam: F  /  X button",
+			"Accusation: G  /  Y button",
+			"Burden Zone: R  /  B button",
+			"Self-Punishment: L2 + R2",
 		]
 		denial_lines = [
 			"DENIAL (P2)",
-			"Move: Arrow Keys",
+			"Move: Arrows  /  Left Stick",
 			"Jump: Up  /  A button",
-			"Attack: Enter  /  X button",
-			"Heavy: RShift  /  Y button",
-			"Dodge: Num0  /  B button",
-			"Special: L2+R2",
+			"Suppress: Enter  /  X button",
+			"Deflect: RShift  /  Y button",
+			"Forget: Num0  /  B button",
+			"Bright Burst: L2 + R2",
 		]
 	elif is_competitive_2:
-		phase_label = "PHASE: TERRITORY GRAB"
-		shared_lines = [
-			"BOTH PLAYERS",
-			"Move: Left / Right",
-			"Jump / Flip gravity: to switch surfaces",
-			"Catch your color fragments",
+		phase_label = "GRAVITY RUN"
+		blame_lines = [
+			"BLAME (P1)",
+			"Move: A / D  /  Left Stick",
+			"Flip Gravity: W  /  A button",
+			"Catch BLUE fragments",
+		]
+		denial_lines = [
+			"DENIAL (P2)",
+			"Move: Left / Right  /  Left Stick",
+			"Flip Gravity: Up  /  A button",
+			"Catch ORANGE fragments",
 		]
 	elif is_cooperative_1:
-		phase_label = "PHASE: PUSH BLOCK"
-		shared_lines = [
-			"BOTH PLAYERS",
-			"Move: Left / Right",
-			"Jump",
-			"Stay near ghost platforms to solidify them",
-			"Stay close together to slow guilt shadow",
+		phase_label = "CARRYING THE WEIGHT"
+		blame_lines = [
+			"BLAME (P1)",
+			"Move: A / D  /  Left Stick",
+			"Jump: W  /  A button",
+			"BLUE platforms solidify near you",
+		]
+		denial_lines = [
+			"DENIAL (P2)",
+			"Move: Left / Right  /  Left Stick",
+			"Jump: Up  /  A button",
+			"ORANGE platforms solidify near you",
 		]
 	elif is_cooperative_2:
-		phase_label = "PHASE: SYNC PRESS"
-		shared_lines = [
-			"BOTH PLAYERS",
-			"Move: WASD (P1) / Arrows (P2)",
-			"P1 blocks warm embers with F / X button",
-			"P2 blocks cold shards with Enter / X button",
+		phase_label = "INTO THE FOG"
+		blame_lines = [
+			"BLAME (P1)",
+			"Move: WASD  /  Left Stick",
+			"Block embers: F  /  X button",
+			"Stay close for more light",
+		]
+		denial_lines = [
+			"DENIAL (P2)",
+			"Move: Arrows  /  Left Stick",
+			"Block shards: Enter  /  X button",
+			"Stay close for more light",
 		]
 	else:
 		phase_label = ""
-		shared_lines = [
-			"BOTH PLAYERS",
-			"Move: WASD (P1) / Arrow Keys (P2)",
-			"Jump: W or Up",
-			"Action: F (P1) / Enter (P2)",
+		blame_lines = [
+			"BLAME (P1)",
+			"Move: WASD  /  Left Stick",
+			"Jump: W  /  A button",
+			"Action: F  /  X button",
+		]
+		denial_lines = [
+			"DENIAL (P2)",
+			"Move: Arrows  /  Left Stick",
+			"Jump: Up  /  A button",
+			"Action: Enter  /  X button",
 		]
 
 	var content_y: float = top_y + 80.0

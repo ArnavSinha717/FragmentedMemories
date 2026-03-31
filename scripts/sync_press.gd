@@ -590,8 +590,8 @@ func _draw_instructions() -> void:
 	var cc := Color(0.65, 0.65, 0.75, ca)
 	var hl := Color(0.5, 0.5, 0.65, ca * 0.6)
 	# Title
-	draw_string(font, Vector2(360, 120), "WALK THROUGH THE FOG", HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Color(0.7, 0.7, 0.85, ca))
-	draw_string(font, Vector2(500, 150), "Together", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.55, 0.55, 0.65, ca * 0.7))
+	draw_string(font, Vector2(450, 120), "INTO THE FOG", HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Color(0.7, 0.7, 0.85, ca))
+	draw_string(font, Vector2(470, 150), "Find each other. Escape together.", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.55, 0.55, 0.65, ca * 0.7))
 	# P1
 	draw_string(font, Vector2(80, 220), "BLAME", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_blame_color_light(), ca))
 	draw_line(Vector2(80, 227), Vector2(230, 227), Color(GameManager.get_blame_color(), ca * 0.3), 1.0)
