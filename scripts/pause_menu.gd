@@ -123,7 +123,8 @@ func _is_pausable_phase() -> bool:
 	return phase == GameManager.Phase.COMPETITIVE_1 \
 		or phase == GameManager.Phase.COMPETITIVE_2 \
 		or phase == GameManager.Phase.COOPERATIVE_1 \
-		or phase == GameManager.Phase.COOPERATIVE_2
+		or phase == GameManager.Phase.COOPERATIVE_2 \
+		or phase == GameManager.Phase.BOSS_FIGHT
 
 
 func _activate_option() -> void:
