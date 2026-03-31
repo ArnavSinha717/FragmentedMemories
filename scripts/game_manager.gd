@@ -368,6 +368,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	# DEBUG: Press F9 to skip current scene (for development only)
 	if event is InputEventKey and (event as InputEventKey).pressed and (event as InputEventKey).keycode == KEY_F9:
 		_debug_skip()
+	# Dpad down (button 12) on any controller also skips
+	if event is InputEventJoypadButton and (event as InputEventJoypadButton).pressed and (event as InputEventJoypadButton).button_index == 12:
+		_debug_skip()
 
 
 func reset_game() -> void:

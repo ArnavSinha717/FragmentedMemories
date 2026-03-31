@@ -105,7 +105,7 @@ const DENIAL_SPEED := 280.0  # Faster — trickster
 # Suppress (Light Attack) — close-range push
 var denial_suppress_cd := 0.0
 var denial_suppress_anim := 0.0
-const DENIAL_SUPPRESS_CD := 0.5
+const DENIAL_SUPPRESS_CD := 0.25
 const DENIAL_SUPPRESS_RANGE := 90.0
 const DENIAL_SUPPRESS_PUSH := 350.0
 
