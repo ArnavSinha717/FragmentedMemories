@@ -32,9 +32,18 @@ func _ready() -> void:
 	play_button.add_theme_stylebox_override("hover", btn_hover)
 
 	var btn_focus: StyleBoxFlat = btn_hover.duplicate() as StyleBoxFlat
+	btn_focus.border_color = Color(0.7, 0.65, 0.8, 0.9)
+	btn_focus.set_border_width_all(2)
 	play_button.add_theme_stylebox_override("focus", btn_focus)
 
+	var btn_pressed: StyleBoxFlat = btn_hover.duplicate() as StyleBoxFlat
+	btn_pressed.bg_color = Color(0.25, 0.22, 0.4, 0.95)
+	play_button.add_theme_stylebox_override("pressed", btn_pressed)
+
 	GameManager.reset_game()
+
+	# Grab focus so controller can select the button
+	play_button.grab_focus()
 
 	for i in range(NUM_SHAPES):
 		_spawn_shape(true)
