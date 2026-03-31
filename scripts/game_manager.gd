@@ -126,10 +126,13 @@ func _load_character_sheets() -> void:
 ## row/col select the animation frame. scl scales from base 100px.
 func draw_blame_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
-	# Bright cold blue tint — keeps sprites visible against dark bg
 	var tint := mod * Color(1.3, 1.35, 1.8)
-	# Golem sits in top portion of 100x100 frame — offset down so it rests on ground
 	var draw_pos := Vector2(pos.x, pos.y + 25.0 * scl)
+	# Neon glow behind character
+	var glow_center := Vector2(pos.x, pos.y - 30.0 * scl)
+	canvas.draw_circle(glow_center, 50.0 * scl, Color(0.3, 0.35, 0.8, 0.06 * mod.a))
+	canvas.draw_circle(glow_center, 30.0 * scl, Color(0.4, 0.45, 0.9, 0.1 * mod.a))
+	canvas.draw_circle(glow_center, 15.0 * scl, Color(0.5, 0.55, 1.0, 0.08 * mod.a))
 	if golem_sheet:
 		_draw_sheet_frame(canvas, golem_sheet, draw_pos, GOLEM_FW, GOLEM_FH, scol, srow, scl, flip_h, tint)
 	else:
@@ -143,6 +146,9 @@ func draw_blame_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
 	var tint := mod * Color(1.3, 1.35, 1.8)
 	var draw_pos := Vector2(pos.x, pos.y - 25.0 * scl)
+	var glow_center := Vector2(pos.x, pos.y + 30.0 * scl)
+	canvas.draw_circle(glow_center, 50.0 * scl, Color(0.3, 0.35, 0.8, 0.06 * mod.a))
+	canvas.draw_circle(glow_center, 30.0 * scl, Color(0.4, 0.45, 0.9, 0.1 * mod.a))
 	if golem_sheet:
 		_draw_sheet_frame(canvas, golem_sheet, draw_pos, GOLEM_FW, GOLEM_FH, scol, srow, scl, flip_h, tint, true)
 	else:
@@ -154,8 +160,12 @@ func draw_blame_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow
 ## Draw Denial (Rogue) sprite at pos (feet position).
 func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
-	# Tint toward warm orange (denial's emotion color)
 	var tint := mod * Color(2.5, 1.6, 0.8)
+	# Neon glow behind character
+	var glow_center := Vector2(pos.x, pos.y - 20.0 * scl)
+	canvas.draw_circle(glow_center, 45.0 * scl, Color(0.9, 0.5, 0.2, 0.06 * mod.a))
+	canvas.draw_circle(glow_center, 25.0 * scl, Color(1.0, 0.6, 0.25, 0.1 * mod.a))
+	canvas.draw_circle(glow_center, 12.0 * scl, Color(1.0, 0.7, 0.3, 0.08 * mod.a))
 	if rogue_sheet:
 		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, tint)
 	else:
@@ -167,6 +177,9 @@ func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 func draw_denial_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
 	var tint := mod * Color(2.5, 1.6, 0.8)
+	var glow_center := Vector2(pos.x, pos.y + 20.0 * scl)
+	canvas.draw_circle(glow_center, 45.0 * scl, Color(0.9, 0.5, 0.2, 0.06 * mod.a))
+	canvas.draw_circle(glow_center, 25.0 * scl, Color(1.0, 0.6, 0.25, 0.1 * mod.a))
 	if rogue_sheet:
 		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, tint, true)
 	else:
