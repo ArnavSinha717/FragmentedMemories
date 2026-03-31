@@ -127,7 +127,7 @@ func draw_blame_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 	# Tint toward cold blue (blame's emotion color)
 	var tint := mod * Color(0.65, 0.7, 1.0)
 	# Golem sits in top portion of 100x100 frame — offset down so it rests on ground
-	var draw_pos := Vector2(pos.x, pos.y + 40.0 * scl)
+	var draw_pos := Vector2(pos.x, pos.y + 25.0 * scl)
 	if golem_sheet:
 		_draw_sheet_frame(canvas, golem_sheet, draw_pos, GOLEM_FW, GOLEM_FH, scol, srow, scl, flip_h, tint)
 	else:
@@ -140,7 +140,7 @@ func draw_blame_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 func draw_blame_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
 	var tint := mod * Color(0.65, 0.7, 1.0)
-	var draw_pos := Vector2(pos.x, pos.y - 40.0 * scl)
+	var draw_pos := Vector2(pos.x, pos.y - 25.0 * scl)
 	if golem_sheet:
 		_draw_sheet_frame(canvas, golem_sheet, draw_pos, GOLEM_FW, GOLEM_FH, scol, srow, scl, flip_h, tint, true)
 	else:
