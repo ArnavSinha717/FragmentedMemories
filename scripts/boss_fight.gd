@@ -80,6 +80,14 @@ var burst_count := 0     # How many bursts landed so far
 var world_color := 1.0
 var pulse_time := 0.0
 var boss_tendrils: Array[float] = [0, 0.5, 1.0, 1.5, 2.0, 2.5]
+var tendril_lunges: Array[Dictionary] = []  # {index, target, timer, max_time, retract}
+var tendril_lunge_cd := 0.0
+const TENDRIL_LUNGE_INTERVAL := 1.8  # seconds between lunge attempts
+const TENDRIL_LUNGE_SPEED := 0.35    # seconds to extend
+const TENDRIL_LUNGE_HOLD := 0.15     # seconds held at max
+const TENDRIL_RETRACT_SPEED := 0.25  # seconds to retract
+const TENDRIL_LUNGE_RANGE := 300.0
+const TENDRIL_HIT_RADIUS := 30.0
 var screen_shake := 0.0
 var phase: int = 0  # 0=fighting, 1=fatality, 2=done
 var boss_phase := 0
@@ -144,6 +152,7 @@ func _process(delta: float) -> void:
 	_move_players(delta)
 	_process_boss(delta)
 	_process_tendril_sweep(delta)
+	_process_tendril_lunges(delta)
 	_process_shockwaves(delta)
 	_process_darkness(delta)
 	_process_projectiles(delta)
@@ -368,6 +377,65 @@ func _process_tendril_sweep(delta: float) -> void:
 		tendril_sweep_active = false
 
 
+func _process_tendril_lunges(delta: float) -> void:
+	# Cooldown for spawning new lunges
+	tendril_lunge_cd -= delta
+	if tendril_lunge_cd <= 0 and not vulnerable and boss_tendrils.size() > 0:
+		tendril_lunge_cd = TENDRIL_LUNGE_INTERVAL / maxf(1.0, float(boss_phase) + 1.0)
+		# Pick a random tendril and lunge toward nearest player
+		var idx: int = randi() % boss_tendrils.size()
+		# Don't lunge if this tendril is already lunging
+		var already_lunging := false
+		for l: Dictionary in tendril_lunges:
+			if (l.index as int) == idx:
+				already_lunging = true
+				break
+		if not already_lunging:
+			var target: Vector2 = p1_pos if randf() > 0.5 else p2_pos
+			tendril_lunges.append({
+				"index": idx,
+				"target": target,
+				"timer": 0.0,
+				"max_time": TENDRIL_LUNGE_SPEED + TENDRIL_LUNGE_HOLD + TENDRIL_RETRACT_SPEED,
+				"hit_dealt": false,
+			})
+
+	# Update active lunges
+	for i in range(tendril_lunges.size() - 1, -1, -1):
+		var l: Dictionary = tendril_lunges[i]
+		l.timer = (l.timer as float) + delta
+
+		# Check if at full extension (hit window)
+		var t: float = l.timer as float
+		if t >= TENDRIL_LUNGE_SPEED and t < TENDRIL_LUNGE_SPEED + TENDRIL_LUNGE_HOLD and not (l.hit_dealt as bool):
+			var tip: Vector2 = l.target as Vector2
+			if p1_pos.distance_to(tip) < TENDRIL_HIT_RADIUS and p1_stun <= 0:
+				_hit_player(true, (p1_pos - boss_pos).normalized() * 150.0)
+				l.hit_dealt = true
+			if p2_pos.distance_to(tip) < TENDRIL_HIT_RADIUS and p2_stun <= 0:
+				_hit_player(false, (p2_pos - boss_pos).normalized() * 150.0)
+				l.hit_dealt = true
+
+		if t >= (l.max_time as float):
+			tendril_lunges.remove_at(i)
+
+
+func _get_tendril_lunge_progress(tendril_idx: int) -> Dictionary:
+	## Returns {active, target, progress} for a tendril. progress: 0=idle, 0-1=extending, 1=full, 1-0=retracting
+	for l: Dictionary in tendril_lunges:
+		if (l.index as int) == tendril_idx:
+			var t: float = l.timer as float
+			var prog: float = 0.0
+			if t < TENDRIL_LUNGE_SPEED:
+				prog = t / TENDRIL_LUNGE_SPEED  # extending
+			elif t < TENDRIL_LUNGE_SPEED + TENDRIL_LUNGE_HOLD:
+				prog = 1.0  # full extension
+			else:
+				prog = 1.0 - (t - TENDRIL_LUNGE_SPEED - TENDRIL_LUNGE_HOLD) / TENDRIL_RETRACT_SPEED
+			return {"active": true, "target": l.target as Vector2, "progress": clampf(prog, 0.0, 1.0)}
+	return {"active": false, "target": Vector2.ZERO, "progress": 0.0}
+
+
 func _point_near_line(point: Vector2, line_a: Vector2, line_b: Vector2, threshold: float) -> bool:
 	var ab: Vector2 = line_b - line_a
 	var ap: Vector2 = point - line_a
@@ -556,29 +624,50 @@ func _draw() -> void:
 	draw_circle(bp, boss_size * 0.65, Color(0.12, 0.08, 0.15, 0.6))
 	draw_circle(bp, boss_size * 0.3, Color(0.25, 0.08, 0.12, sin(pulse_time * 2.0) * 0.15 + 0.3))
 
-	# --- Tendrils (curved, organic) ---
+	# --- Tendrils (curved, organic — lunge toward players) ---
 	for i in range(boss_tendrils.size()):
 		var base_angle: float = boss_tendrils[i]
-		var length: float = 100.0 + float(boss_phase) * 25.0 + sin(pulse_time + float(i)) * 20.0
+		var idle_length: float = 100.0 + float(boss_phase) * 25.0 + sin(pulse_time + float(i)) * 20.0
 		var segments: int = 8
-		var prev_pt: Vector2 = bp
 		var thickness: float = 6.0 + float(boss_phase) * 1.5
+
+		# Check if this tendril is lunging
+		var lunge: Dictionary = _get_tendril_lunge_progress(i)
+		var is_lunging: bool = lunge.active as bool
+		var lunge_prog: float = lunge.progress as float
+
+		# Calculate final tip position
+		var idle_tip: Vector2 = bp + Vector2(cos(base_angle), sin(base_angle)) * idle_length
+		var tip_target: Vector2 = idle_tip
+		var draw_col := Color(0.18, 0.08, 0.22)
+		if is_lunging:
+			tip_target = idle_tip.lerp(lunge.target as Vector2, lunge_prog)
+			# Red tint when attacking
+			draw_col = draw_col.lerp(Color(0.5, 0.1, 0.12), lunge_prog * 0.7)
+			thickness += lunge_prog * 3.0
+
+		var prev_pt: Vector2 = bp
 		for seg: int in range(1, segments + 1):
 			var t: float = float(seg) / float(segments)
-			# Curve the tendril with sine wave
 			var wave: float = sin(pulse_time * 2.0 + float(i) * 1.5 + t * 4.0) * 15.0 * t
-			var seg_angle: float = base_angle + wave * 0.02
-			var seg_pos: Vector2 = bp + Vector2(cos(seg_angle), sin(seg_angle)) * length * t
-			seg_pos += Vector2(-sin(base_angle), cos(base_angle)) * wave
+			if is_lunging:
+				wave *= (1.0 - lunge_prog * 0.8)  # Straighten out when lunging
+			# Interpolate between orbiting position and target
+			var orbit_pos: Vector2 = bp + Vector2(cos(base_angle), sin(base_angle)) * idle_length * t
+			orbit_pos += Vector2(-sin(base_angle), cos(base_angle)) * wave
+			var lunge_pos: Vector2 = bp.lerp(tip_target, t)
+			var seg_pos: Vector2 = orbit_pos if not is_lunging else orbit_pos.lerp(lunge_pos, lunge_prog)
 			var seg_thick: float = thickness * (1.0 - t * 0.7)
-			var seg_alpha: float = 0.5 * (1.0 - t * 0.4)
-			draw_line(prev_pt, seg_pos, Color(0.18, 0.08, 0.22, seg_alpha), seg_thick)
-			# Inner glow on thicker segments
+			var seg_alpha: float = 0.5 * (1.0 - t * 0.3)
+			draw_line(prev_pt, seg_pos, Color(draw_col.r, draw_col.g, draw_col.b, seg_alpha), seg_thick)
 			if seg_thick > 3.0:
 				draw_line(prev_pt, seg_pos, Color(0.3, 0.1, 0.15, seg_alpha * 0.3), seg_thick * 0.4)
 			prev_pt = seg_pos
-		# Tip blob
-		draw_circle(prev_pt, 4.0 + float(boss_phase), Color(0.25, 0.1, 0.15, 0.4))
+		# Tip — larger and red when lunging
+		var tip_size: float = 4.0 + float(boss_phase)
+		if is_lunging:
+			tip_size += lunge_prog * 6.0
+		draw_circle(prev_pt, tip_size, Color(draw_col.r + 0.1, draw_col.g, draw_col.b, 0.5))
 
 	# --- Tendril sweep ---
 	if tendril_sweep_active:
