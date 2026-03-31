@@ -15,6 +15,7 @@ const BAD_2 = "B2"  # The accident
 # Game phases
 enum Phase {
 	MAIN_MENU,
+	PROLOGUE,
 	INTRO_CUTSCENE,
 	COMPETITIVE_1,
 	WINNER_1,
@@ -75,6 +76,7 @@ var music_player: AudioStreamPlayer = null
 # Scene paths
 var scene_map: Dictionary = {
 	Phase.MAIN_MENU: "res://scenes/main_menu.tscn",
+	Phase.PROLOGUE: "res://scenes/prologue.tscn",
 	Phase.INTRO_CUTSCENE: "res://scenes/intro_cutscene.tscn",
 	Phase.COMPETITIVE_1: "res://scenes/competitive_fight.tscn",
 	Phase.WINNER_1: "res://scenes/winner_screen.tscn",
@@ -482,6 +484,8 @@ func advance_phase() -> void:
 	var next_phase: Phase
 	match current_phase:
 		Phase.MAIN_MENU:
+			next_phase = Phase.PROLOGUE
+		Phase.PROLOGUE:
 			next_phase = Phase.INTRO_CUTSCENE
 		Phase.INTRO_CUTSCENE:
 			next_phase = Phase.COMPETITIVE_1
