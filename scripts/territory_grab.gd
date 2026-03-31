@@ -157,7 +157,7 @@ func _handle_input(delta: float) -> void:
 	if d1 != 0.0: p1_facing = d1
 	p1_vel.x = lerpf(p1_vel.x, d1 * PLAYER_SPD, 10.0 * delta)
 
-	if p1_flip_ready and Input.is_action_just_pressed("p1_up"):
+	if p1_flip_ready and Input.is_action_just_pressed("p1_jump"):
 		p1_grav       *= -1.0   # flip gravity direction
 		p1_ground      = false
 		p1_flip_ready  = false  # must land before flipping again
@@ -169,7 +169,7 @@ func _handle_input(delta: float) -> void:
 	if d2 != 0.0: p2_facing = d2
 	p2_vel.x = lerpf(p2_vel.x, d2 * PLAYER_SPD, 10.0 * delta)
 
-	if p2_flip_ready and Input.is_action_just_pressed("p2_up"):
+	if p2_flip_ready and Input.is_action_just_pressed("p2_jump"):
 		p2_grav       *= -1.0
 		p2_ground      = false
 		p2_flip_ready  = false

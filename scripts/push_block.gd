@@ -281,10 +281,10 @@ func _update_player(is_p1: bool, delta: float) -> void:
 
 	# Jump
 	if on_ground:
-		if is_p1 and Input.is_action_just_pressed("p1_up"):
+		if is_p1 and Input.is_action_just_pressed("p1_jump"):
 			vel.y = JUMP_SPEED
 			on_ground = false
-		elif not is_p1 and Input.is_action_just_pressed("p2_up"):
+		elif not is_p1 and Input.is_action_just_pressed("p2_jump"):
 			vel.y = JUMP_SPEED
 			on_ground = false
 

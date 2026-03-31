@@ -303,7 +303,7 @@ func _move_blame(delta: float) -> void:
 		var speed: float = BLAME_SPEED
 		p1_vel.x = lerpf(p1_vel.x, dir * speed, 10.0 * delta)
 
-	if p1_on_ground and p1_stun <= 0 and Input.is_action_just_pressed("p1_up"):
+	if p1_on_ground and p1_stun <= 0 and Input.is_action_just_pressed("p1_jump"):
 		p1_vel.y = JUMP_FORCE
 		p1_on_ground = false
 
@@ -337,7 +337,7 @@ func _move_denial(delta: float) -> void:
 				break
 		p2_vel.x = lerpf(p2_vel.x, dir * speed, 10.0 * delta)
 
-	if p2_on_ground and p2_stun <= 0 and Input.is_action_just_pressed("p2_up"):
+	if p2_on_ground and p2_stun <= 0 and Input.is_action_just_pressed("p2_jump"):
 		p2_vel.y = JUMP_FORCE
 		p2_on_ground = false
 
