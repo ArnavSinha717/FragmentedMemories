@@ -126,8 +126,8 @@ func _load_character_sheets() -> void:
 ## row/col select the animation frame. scl scales from base 100px.
 func draw_blame_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
-	# Tint toward cold blue (blame's emotion color)
-	var tint := mod * Color(0.65, 0.7, 1.0)
+	# Bright cold blue tint — keeps sprites visible against dark bg
+	var tint := mod * Color(1.3, 1.35, 1.8)
 	# Golem sits in top portion of 100x100 frame — offset down so it rests on ground
 	var draw_pos := Vector2(pos.x, pos.y + 25.0 * scl)
 	if golem_sheet:
@@ -141,7 +141,7 @@ func draw_blame_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 ## Draw Blame sprite vertically flipped (for ceiling). pos = head attachment point.
 func draw_blame_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
-	var tint := mod * Color(0.65, 0.7, 1.0)
+	var tint := mod * Color(1.3, 1.35, 1.8)
 	var draw_pos := Vector2(pos.x, pos.y - 25.0 * scl)
 	if golem_sheet:
 		_draw_sheet_frame(canvas, golem_sheet, draw_pos, GOLEM_FW, GOLEM_FH, scol, srow, scl, flip_h, tint, true)
@@ -155,7 +155,7 @@ func draw_blame_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow
 func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
 	# Tint toward warm orange (denial's emotion color)
-	var tint := mod * Color(1.0, 0.75, 0.55)
+	var tint := mod * Color(1.7, 1.3, 1.0)
 	if rogue_sheet:
 		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, tint)
 	else:
@@ -166,7 +166,7 @@ func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 ## Draw Denial sprite vertically flipped (for ceiling). pos = head attachment point.
 func draw_denial_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
-	var tint := mod * Color(1.0, 0.75, 0.55)
+	var tint := mod * Color(1.7, 1.3, 1.0)
 	if rogue_sheet:
 		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, tint, true)
 	else:
@@ -566,8 +566,8 @@ func get_grey() -> Color:
 
 func get_bg_color() -> Color:
 	# Interpolate between blame (cold) and denial (warm) based on hue_value
-	var blame_bg := Color(0.08, 0.08, 0.15)
-	var denial_bg := Color(0.18, 0.12, 0.1)
+	var blame_bg := Color(0.04, 0.04, 0.08)
+	var denial_bg := Color(0.1, 0.06, 0.05)
 	return blame_bg.lerp(denial_bg, hue_value)
 
 

@@ -655,27 +655,31 @@ func _draw() -> void:
 		shake = Vector2(randf_range(-2, 2), randf_range(-2, 2)) * screen_shake * 5.0
 
 	# ── Arena: multi-level platforms ──────────────────────────────────
-	var pc := Color(0.2, 0.2, 0.27)
-	var pe := Color(0.35, 0.35, 0.44, 0.6)
+	var pc := Color(0.25, 0.25, 0.35)
+	var pe := Color(0.45, 0.45, 0.6, 0.8)
 	# Main ground
 	draw_rect(Rect2(PLATFORM_LEFT - 20 + shake.x, GROUND_Y + shake.y, PLATFORM_RIGHT - PLATFORM_LEFT + 40, 14), pc)
 	draw_line(Vector2(PLATFORM_LEFT - 20 + shake.x, GROUND_Y + shake.y), Vector2(PLATFORM_RIGHT + 20 + shake.x, GROUND_Y + shake.y), pe, 2.0)
 	# Ground detail — hash marks
 	for gx in range(int(PLATFORM_LEFT), int(PLATFORM_RIGHT), 60):
-		draw_line(Vector2(gx + shake.x, GROUND_Y + 3 + shake.y), Vector2(gx + shake.x, GROUND_Y + 11 + shake.y), Color(0.25, 0.25, 0.32, 0.3), 1.0)
+		draw_line(Vector2(gx + shake.x, GROUND_Y + 3 + shake.y), Vector2(gx + shake.x, GROUND_Y + 11 + shake.y), Color(0.3, 0.3, 0.4, 0.35), 1.0)
 	# Side pillars
-	draw_rect(Rect2(PLATFORM_LEFT - 25 + shake.x, GROUND_Y - 80 + shake.y, 10, 94), Color(0.18, 0.18, 0.24, 0.5))
-	draw_rect(Rect2(PLATFORM_RIGHT + 15 + shake.x, GROUND_Y - 80 + shake.y, 10, 94), Color(0.18, 0.18, 0.24, 0.5))
-	# Floating platforms (match PLATFORMS collision rects)
-	var fp_col := Color(0.22, 0.22, 0.3, 0.7)
-	var fp_edge := Color(0.35, 0.35, 0.45, 0.5)
+	draw_rect(Rect2(PLATFORM_LEFT - 25 + shake.x, GROUND_Y - 80 + shake.y, 10, 94), Color(0.22, 0.22, 0.3, 0.6))
+	draw_rect(Rect2(PLATFORM_RIGHT + 15 + shake.x, GROUND_Y - 80 + shake.y, 10, 94), Color(0.22, 0.22, 0.3, 0.6))
+	# Floating platforms (match PLATFORMS collision rects) — bright so they stand out
+	var fp_col := Color(0.35, 0.35, 0.5, 0.9)
+	var fp_edge := Color(0.55, 0.55, 0.7, 0.85)
+	var fp_glow := Color(0.4, 0.4, 0.6, 0.15)
 	for plat: Rect2 in PLATFORMS:
 		var pr := Rect2(plat.position + shake, plat.size)
+		# Glow underneath
+		draw_rect(Rect2(pr.position.x - 3, pr.position.y - 2, pr.size.x + 6, pr.size.y + 6), fp_glow)
 		draw_rect(pr, fp_col)
-		draw_line(pr.position, pr.position + Vector2(pr.size.x, 0), fp_edge, 1.5)
+		# Top edge highlight
+		draw_line(pr.position, pr.position + Vector2(pr.size.x, 0), fp_edge, 2.0)
 		# Support brackets
-		draw_rect(Rect2(pr.position.x + 10, pr.position.y + pr.size.y, 4, 12), Color(0.18, 0.18, 0.24, 0.4))
-		draw_rect(Rect2(pr.position.x + pr.size.x - 14, pr.position.y + pr.size.y, 4, 12), Color(0.18, 0.18, 0.24, 0.4))
+		draw_rect(Rect2(pr.position.x + 10, pr.position.y + pr.size.y, 4, 14), Color(0.25, 0.25, 0.35, 0.5))
+		draw_rect(Rect2(pr.position.x + pr.size.x - 14, pr.position.y + pr.size.y, 4, 14), Color(0.25, 0.25, 0.35, 0.5))
 
 	# ── Burden Zones (dark VFX sprite + fallback) ────────────────────
 	for zone: Dictionary in burden_zones:
