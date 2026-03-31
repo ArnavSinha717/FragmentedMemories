@@ -28,7 +28,7 @@ var battle_fx_sheet: Texture2D       # Generic hit sparks
 const GOLEM_FW := 100
 const GOLEM_FH := 100
 const ROGUE_FW := 50
-const ROGUE_FH := 45
+const ROGUE_FH := 37
 
 # ─── Arena ─────────────────────────────────────────────────────────────────
 const GRAVITY := 900.0

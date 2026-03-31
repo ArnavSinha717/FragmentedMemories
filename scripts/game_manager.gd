@@ -101,7 +101,7 @@ var rogue_sheet: Texture2D    # Denial (Rogue Knight) — 500x444, 50x74 frames,
 const GOLEM_FW := 100
 const GOLEM_FH := 100
 const ROGUE_FW := 50
-const ROGUE_FH := 45
+const ROGUE_FH := 37
 
 
 func _ready() -> void:
