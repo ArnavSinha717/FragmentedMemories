@@ -254,7 +254,7 @@ func _draw_controls_screen(vp_size: Vector2, font: Font, title_size: int, body_s
 			"Jump: Up  /  A button",
 			"Suppress: Enter  /  X button",
 			"Deflect: RShift  /  Y button",
-			"Forget: Num0  /  B button",
+			"Forget: /  /  B button",
 			"Bright Burst: L2 + R2",
 		]
 	elif is_competitive_2:

@@ -39,11 +39,7 @@ const PLATFORM_RIGHT := 1140.0
 const CEILING := 60.0
 const MATCH_TIME := 60.0
 # Floating platform collision rects (drawn + collided)
-const PLATFORMS: Array[Rect2] = [
-	Rect2(280, 460, 180, 10),   # Left platform
-	Rect2(820, 460, 180, 10),   # Right platform
-	Rect2(520, 360, 240, 10),   # Center high platform
-]
+var platforms: Array[Rect2] = []
 
 # ─── Players ───────────────────────────────────────────────────────────────
 var p1_pos := Vector2(350, 580.0)
@@ -158,6 +154,11 @@ func _ready() -> void:
 	p2_score_label.add_theme_color_override("font_color", GameManager.get_denial_color_light())
 	p1_score_label.text = "BLAME: 0"
 	p2_score_label.text = "DENIAL: 0"
+
+	# Build platform list
+	platforms.append(Rect2(280, 460, 180, 10))
+	platforms.append(Rect2(820, 460, 180, 10))
+	platforms.append(Rect2(520, 360, 240, 10))
 
 	# Load sprite assets
 	golem_sheet = _load_tex("res://assets/blame_golem/Mecha-stone Golem 0.1/PNG sheet/Character_sheet.png")
@@ -567,12 +568,12 @@ func _update_burden_zones(delta: float) -> void:
 
 func _check_platform_land(prev_y: float, is_p1: bool) -> void:
 	var pos: Vector2 = p1_pos if is_p1 else p2_pos
-	for plat: Rect2 in PLATFORMS:
+	for plat: Rect2 in platforms:
 		var plat_top: float = plat.position.y
 		# Within horizontal bounds?
-		if pos.x > plat.position.x and pos.x < plat.position.x + plat.size.x:
-			# Was above platform last frame, now at or below it?
-			if prev_y <= plat_top and pos.y >= plat_top:
+		if pos.x > plat.position.x - 5 and pos.x < plat.position.x + plat.size.x + 5:
+			# Was above or near platform top last frame, now at or below it?
+			if prev_y <= plat_top + 5 and pos.y >= plat_top - 5:
 				if is_p1:
 					p1_pos.y = plat_top
 					p1_vel.y = 0.0
@@ -666,11 +667,11 @@ func _draw() -> void:
 	# Side pillars
 	draw_rect(Rect2(PLATFORM_LEFT - 25 + shake.x, GROUND_Y - 80 + shake.y, 10, 94), Color(0.22, 0.22, 0.3, 0.6))
 	draw_rect(Rect2(PLATFORM_RIGHT + 15 + shake.x, GROUND_Y - 80 + shake.y, 10, 94), Color(0.22, 0.22, 0.3, 0.6))
-	# Floating platforms (match PLATFORMS collision rects) — bright so they stand out
+	# Floating platforms — bright so they stand out
 	var fp_col := Color(0.35, 0.35, 0.5, 0.9)
 	var fp_edge := Color(0.55, 0.55, 0.7, 0.85)
 	var fp_glow := Color(0.4, 0.4, 0.6, 0.15)
-	for plat: Rect2 in PLATFORMS:
+	for plat: Rect2 in platforms:
 		var pr := Rect2(plat.position + shake, plat.size)
 		# Glow underneath
 		draw_rect(Rect2(pr.position.x - 3, pr.position.y - 2, pr.size.x + 6, pr.size.y + 6), fp_glow)
@@ -927,7 +928,7 @@ func _draw() -> void:
 		draw_string(font, Vector2(740, 205), "Move: Arrows / Stick  |  Jump: Up / A", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hl)
 		draw_string(font, Vector2(740, 225), "Enter / X : Suppress (push + punch)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
 		draw_string(font, Vector2(740, 243), "RShift / Y : Deflect (parry, reflects!)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
-		draw_string(font, Vector2(740, 261), "Num0 / B : Forget (teleport + decoy)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+		draw_string(font, Vector2(740, 261), "/ / B : Forget (teleport + decoy)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
 		draw_string(font, Vector2(740, 281), "L2+R2 : Bright Burst (-2pts, AoE)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.9, 0.65, 0.35, ca))
 		# Timer toggle hint
 		var timer_text: String = "Timer: ON (60s)" if timer_enabled else "Timer: OFF (no limit)"

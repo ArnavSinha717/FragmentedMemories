@@ -193,7 +193,7 @@ func _draw() -> void:
 
 	# Controls hint at bottom
 	var hint_a: float = clampf((time_elapsed - 3.0) * 0.2, 0.0, 0.5)
-	var hint := "P1: WASD + F/G/R  |  P2: Arrows + Enter/Shift/Num0  |  Controllers supported"
+	var hint := "P1: WASD + F/G/R  |  P2: Arrows + Enter/Shift//  |  Controllers supported"
 	var hint_w := font.get_string_size(hint, HORIZONTAL_ALIGNMENT_CENTER, -1, 13)
 	draw_string(font, Vector2(cx - hint_w.x * 0.5, 680), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.4, 0.4, 0.45, hint_a))
 
