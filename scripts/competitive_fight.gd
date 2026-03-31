@@ -381,7 +381,7 @@ func _process_blame_abilities(_delta: float) -> void:
 		GameManager.break_shards_near(p1_pos, 60.0, 1)
 
 	# Self-Punishment (Both attack buttons) — sacrifice for power
-	if Input.is_action_pressed("p1_attack") and Input.is_action_just_pressed("p1_heavy") and blame_punish_cd <= 0:
+	if Input.is_action_pressed("p1_special") and Input.is_action_pressed("p1_special2") and blame_punish_cd <= 0:
 		if p1_damage >= 2:
 			blame_punish_cd = BLAME_PUNISH_CD
 			p1_damage -= 2
@@ -433,7 +433,7 @@ func _process_denial_abilities(_delta: float) -> void:
 		decoys.append({"pos": old_pos, "timer": DECOY_DURATION})
 
 	# Bright Burst (Both buttons) — AoE explosion
-	if Input.is_action_pressed("p2_attack") and Input.is_action_just_pressed("p2_heavy") and denial_burst_cd <= 0:
+	if Input.is_action_pressed("p2_special") and Input.is_action_pressed("p2_special2") and denial_burst_cd <= 0:
 		if p2_damage >= 2:
 			denial_burst_cd = DENIAL_BURST_CD
 			p2_damage -= 2
@@ -898,7 +898,7 @@ func _draw() -> void:
 		draw_string(font, Vector2(80, 225), "F / X : Guilt Slam (punch + shockwave)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
 		draw_string(font, Vector2(80, 243), "G / Y : Accusation (cold projectile)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
 		draw_string(font, Vector2(80, 261), "R / B : Burden Zone (slow field)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
-		draw_string(font, Vector2(80, 281), "F+G  : Self-Punishment (-2pts, double dmg)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.55, 0.4, 0.8, ca))
+		draw_string(font, Vector2(80, 281), "L2+R2 : Self-Punishment (-2pts, double dmg)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.55, 0.4, 0.8, ca))
 		# P2
 		draw_string(font, Vector2(740, 175), "DENIAL — The Escape", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_denial_color_light(), ca))
 		draw_line(Vector2(740, 182), Vector2(980, 182), Color(GameManager.get_denial_color(), ca * 0.3), 1.0)
@@ -906,7 +906,7 @@ func _draw() -> void:
 		draw_string(font, Vector2(740, 225), "Enter / X : Suppress (push + punch)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
 		draw_string(font, Vector2(740, 243), "RShift / Y : Deflect (parry, reflects!)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
 		draw_string(font, Vector2(740, 261), "Num0 / B : Forget (teleport + decoy)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
-		draw_string(font, Vector2(740, 281), "Enter+RShift : Bright Burst (-2pts, AoE)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.9, 0.65, 0.35, ca))
+		draw_string(font, Vector2(740, 281), "L2+R2 : Bright Burst (-2pts, AoE)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.9, 0.65, 0.35, ca))
 		# Center text
 		var ct_a: float = 0.5 + sin(pulse_time * 2.0) * 0.2
 		if waiting_for_start:

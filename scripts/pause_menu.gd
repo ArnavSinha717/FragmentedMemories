@@ -245,7 +245,7 @@ func _draw_controls_screen(vp_size: Vector2, font: Font, title_size: int, body_s
 			"Attack: F  /  X button",
 			"Heavy: G  /  Y button",
 			"Dodge: R  /  B button",
-			"Special: F+G",
+			"Special: L2+R2",
 		]
 		denial_lines = [
 			"DENIAL (P2)",
@@ -254,7 +254,7 @@ func _draw_controls_screen(vp_size: Vector2, font: Font, title_size: int, body_s
 			"Attack: Enter  /  X button",
 			"Heavy: RShift  /  Y button",
 			"Dodge: Num0  /  B button",
-			"Special: Enter+RShift",
+			"Special: L2+R2",
 		]
 	elif is_competitive_2:
 		phase_label = "PHASE: TERRITORY GRAB"
