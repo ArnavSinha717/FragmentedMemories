@@ -53,8 +53,8 @@ var dialogue_connected: bool = false
 
 func _ready() -> void:
 	fragment_id = GameManager.get_next_fragment()
-	title_label.text = GameManager.get_fragment_title(fragment_id)
-	title_label.modulate.a = 0.0
+	title_label.text = ""
+	title_label.visible = false
 
 	# Hide both sprites initially
 	sprite_1.modulate.a = 0.0
@@ -290,14 +290,12 @@ func _process(delta: float) -> void:
 func _process_fade_in(_delta: float) -> void:
 	# Fade black overlay from 1.0 to 0.0
 	fade_alpha = maxf(0.0, 1.0 - time_elapsed / FADE_IN_DURATION)
-	# Fade in image 1 and title
+	# Fade in image 1
 	var image_alpha: float = minf(1.0, time_elapsed / FADE_IN_DURATION)
 	sprite_1.modulate.a = image_alpha
-	title_label.modulate.a = minf(1.0, time_elapsed / (FADE_IN_DURATION * 0.8))
 
 	if time_elapsed >= FADE_IN_DURATION:
 		sprite_1.modulate.a = 1.0
-		title_label.modulate.a = 1.0
 		fade_alpha = 0.0
 		_transition_to(RevealPhase.SHOW_IMAGE_1)
 

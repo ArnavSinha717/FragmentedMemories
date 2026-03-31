@@ -37,7 +37,7 @@ const GROUND_Y := 580.0
 const PLATFORM_LEFT := 140.0
 const PLATFORM_RIGHT := 1140.0
 const CEILING := 60.0
-const MATCH_TIME := 50.0
+const MATCH_TIME := 110.0
 # Floating platform collision rects (drawn + collided)
 const PLATFORMS: Array[Rect2] = [
 	Rect2(280, 460, 180, 10),   # Left platform
