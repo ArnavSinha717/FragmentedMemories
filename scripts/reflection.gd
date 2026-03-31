@@ -81,7 +81,7 @@ func _draw() -> void:
 		var sa := subtitle_alpha * 0.5
 		var b_frame: int = GameManager.anim_frame(time_elapsed, 4, 4.0)
 		GameManager.draw_blame_sprite(self, Vector2(588, 486), b_frame, 5, 0.5, false, Color(1, 1, 1, sa))
-		var d_frame: int = GameManager.anim_frame(time_elapsed, 4, 4.0)
+		var d_frame: int = GameManager.anim_frame(time_elapsed, 2, 3.0)
 		GameManager.draw_denial_sprite(self, Vector2(700, 486), d_frame, 0, 0.75, true, Color(1, 1, 1, sa))
 		# Connecting line
 		draw_line(Vector2(596, 478), Vector2(691, 478), Color(0.5, 0.5, 0.55, sa * 0.4), 1.0)

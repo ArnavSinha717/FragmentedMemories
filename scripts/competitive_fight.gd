@@ -31,16 +31,22 @@ const ROGUE_FW := 50
 const ROGUE_FH := 37
 
 # ─── Arena ─────────────────────────────────────────────────────────────────
-const GRAVITY := 900.0
-const JUMP_FORCE := -430.0
-const GROUND_Y := 540.0
+const GRAVITY := 1200.0       # Heavier — snappier jumps, less floaty
+const JUMP_FORCE := -420.0    # Lower arc
+const GROUND_Y := 580.0       # Lower ground = more head room
 const PLATFORM_LEFT := 140.0
 const PLATFORM_RIGHT := 1140.0
 const CEILING := 60.0
 const MATCH_TIME := 50.0
+# Floating platform collision rects (drawn + collided)
+const PLATFORMS: Array[Rect2] = [
+	Rect2(280, 460, 180, 10),   # Left platform
+	Rect2(820, 460, 180, 10),   # Right platform
+	Rect2(520, 360, 240, 10),   # Center high platform
+]
 
 # ─── Players ───────────────────────────────────────────────────────────────
-var p1_pos := Vector2(350, GROUND_Y)
+var p1_pos := Vector2(350, 580.0)
 var p1_vel := Vector2.ZERO
 var p1_on_ground := true
 var p1_facing := 1.0
@@ -49,7 +55,7 @@ var p1_hit_flash := 0.0
 var p1_stun := 0.0
 var p1_powered_up := false  # Self-Punishment buff active
 
-var p2_pos := Vector2(930, GROUND_Y)
+var p2_pos := Vector2(930, 580.0)
 var p2_vel := Vector2.ZERO
 var p2_on_ground := true
 var p2_facing := -1.0
@@ -285,10 +291,13 @@ func _move_blame(delta: float) -> void:
 
 	p1_vel.y += GRAVITY * delta
 	p1_pos += p1_vel * delta
+	p1_on_ground = false
 	if p1_pos.y >= GROUND_Y:
 		p1_pos.y = GROUND_Y
 		p1_vel.y = 0.0
 		p1_on_ground = true
+	else:
+		_check_platform_land(p1_pos, p1_vel, true)
 	p1_pos.y = maxf(p1_pos.y, CEILING)
 	p1_pos.x = clampf(p1_pos.x, PLATFORM_LEFT, PLATFORM_RIGHT)
 
@@ -315,10 +324,13 @@ func _move_denial(delta: float) -> void:
 
 	p2_vel.y += GRAVITY * delta
 	p2_pos += p2_vel * delta
+	p2_on_ground = false
 	if p2_pos.y >= GROUND_Y:
 		p2_pos.y = GROUND_Y
 		p2_vel.y = 0.0
 		p2_on_ground = true
+	else:
+		_check_platform_land(p2_pos, p2_vel, false)
 	p2_pos.y = maxf(p2_pos.y, CEILING)
 	p2_pos.x = clampf(p2_pos.x, PLATFORM_LEFT, PLATFORM_RIGHT)
 
@@ -523,6 +535,33 @@ func _update_burden_zones(delta: float) -> void:
 		zone.timer = (zone.timer as float) - delta
 		if (zone.timer as float) <= 0:
 			burden_zones.remove_at(i)
+			continue
+		# Knockback: push denial outward when inside the zone
+		var zp: Vector2 = zone.pos as Vector2
+		var dist: float = p2_pos.distance_to(zp)
+		if dist < BURDEN_RADIUS and dist > 1.0:
+			var push_dir: float = signf(p2_pos.x - zp.x)
+			if absf(push_dir) < 0.1: push_dir = p2_facing
+			p2_vel.x += push_dir * 400.0 * delta  # Constant outward push
+
+
+func _check_platform_land(pos: Vector2, vel: Vector2, is_p1: bool) -> void:
+	# Only land on platforms when falling down
+	if vel.y <= 0:
+		return
+	for plat: Rect2 in PLATFORMS:
+		if pos.x > plat.position.x and pos.x < plat.position.x + plat.size.x:
+			# Check if feet crossed the platform top this frame
+			if pos.y >= plat.position.y and pos.y - vel.y * get_process_delta_time() < plat.position.y + 15:
+				if is_p1:
+					p1_pos.y = plat.position.y
+					p1_vel.y = 0.0
+					p1_on_ground = true
+				else:
+					p2_pos.y = plat.position.y
+					p2_vel.y = 0.0
+					p2_on_ground = true
+				return
 
 
 func _update_decoys(delta: float) -> void:
@@ -607,11 +646,16 @@ func _draw() -> void:
 	# Side pillars
 	draw_rect(Rect2(PLATFORM_LEFT - 25 + shake.x, GROUND_Y - 80 + shake.y, 10, 94), Color(0.18, 0.18, 0.24, 0.5))
 	draw_rect(Rect2(PLATFORM_RIGHT + 15 + shake.x, GROUND_Y - 80 + shake.y, 10, 94), Color(0.18, 0.18, 0.24, 0.5))
-	# Floating platforms
+	# Floating platforms (match PLATFORMS collision rects)
 	var fp_col := Color(0.22, 0.22, 0.3, 0.7)
-	draw_rect(Rect2(280 + shake.x, 420 + shake.y, 180, 10), fp_col)
-	draw_rect(Rect2(820 + shake.x, 420 + shake.y, 180, 10), fp_col)
-	draw_rect(Rect2(520 + shake.x, 320 + shake.y, 240, 10), fp_col)
+	var fp_edge := Color(0.35, 0.35, 0.45, 0.5)
+	for plat: Rect2 in PLATFORMS:
+		var pr := Rect2(plat.position + shake, plat.size)
+		draw_rect(pr, fp_col)
+		draw_line(pr.position, pr.position + Vector2(pr.size.x, 0), fp_edge, 1.5)
+		# Support brackets
+		draw_rect(Rect2(pr.position.x + 10, pr.position.y + pr.size.y, 4, 12), Color(0.18, 0.18, 0.24, 0.4))
+		draw_rect(Rect2(pr.position.x + pr.size.x - 14, pr.position.y + pr.size.y, 4, 12), Color(0.18, 0.18, 0.24, 0.4))
 
 	# ── Burden Zones (dark VFX sprite + fallback) ────────────────────
 	for zone: Dictionary in burden_zones:
@@ -783,23 +827,23 @@ func _draw() -> void:
 	var r_scale: float = 2.5  # Scale up from 50px — larger to match golem
 
 	if p2_stun > 0:
-		r_row = 5  # Crouch/hurt
+		r_row = 0
 		r_frame = 0
 	elif denial_suppress_anim > 0:
 		r_row = 2  # Attack1 (slash)
-		r_frame = _anim_frame(1.0 - denial_suppress_anim, 10, 20.0, false)
+		r_frame = _anim_frame(1.0 - denial_suppress_anim, 6, 16.0, false)
 	elif denial_deflect_active > 0:
 		r_row = 3  # Attack2 / parry
 		r_frame = 0
 	elif not p2_on_ground:
 		r_row = 1  # Run frame for jump
-		r_frame = 3
+		r_frame = 1
 	elif absf(p2_vel.x) > 30:
 		r_row = 1  # Run
-		r_frame = _anim_frame(pulse_time, 8, 12.0)
+		r_frame = _anim_frame(pulse_time, 4, 10.0)
 	else:
 		r_row = 0  # Idle
-		r_frame = _anim_frame(pulse_time, 4, 6.0)
+		r_frame = _anim_frame(pulse_time, 2, 3.0)
 
 	GameManager.draw_denial_sprite(self, sp2, r_frame, r_row, r_scale, p2_flip, p2_mod)
 

@@ -92,7 +92,7 @@ func _draw() -> void:
 	if phase >= 2:
 		# P2 Denial
 		var denial_mod := Color(1, 1, 1, shape_alpha * 0.85)
-		var d_frame: int = GameManager.anim_frame(time_elapsed, 4, 6.0)
+		var d_frame: int = GameManager.anim_frame(time_elapsed, 2, 3.0)
 		GameManager.draw_denial_sprite(self, shape1_pos + Vector2(0, 35), d_frame, 0, 2.2, false, denial_mod)
 
 		# P1 Blame

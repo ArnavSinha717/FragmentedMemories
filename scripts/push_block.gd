@@ -493,7 +493,7 @@ func _draw() -> void:
 
 	# P2 Denial
 	var r_row: int = 0 if absf(p2_vel.x) < 30 else 1
-	var r_frame: int = GameManager.anim_frame(pulse_time, 4 if r_row == 0 else 8, 8.0)
+	var r_frame: int = GameManager.anim_frame(pulse_time, 2 if r_row == 0 else 4, 6.0)
 	var p2_flip: bool = p2_vel.x < -10.0 if absf(p2_vel.x) > 10 else false
 	GameManager.draw_denial_sprite(self, p2_pos + Vector2(0, PLAYER_SIZE), r_frame, r_row, 1.2, p2_flip)
 

@@ -70,7 +70,7 @@ func _draw() -> void:
 		draw_circle(mid, 8 * walk_progress, Color(0.6, 0.55, 0.6, walk_progress * 0.3))
 
 	# P2 Denial
-	var d_frame: int = GameManager.anim_frame(time_elapsed, 4, 6.0)
+	var d_frame: int = GameManager.anim_frame(time_elapsed, 2, 3.0)
 	GameManager.draw_denial_sprite(self, shape1_pos + Vector2(0, 30), d_frame, 0, 2.2, false)
 
 	# P1 Blame

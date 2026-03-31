@@ -619,7 +619,7 @@ func _draw() -> void:
 	var p2d: Vector2 = p2_pos + shake
 	var p2_facing_dir: bool = p2d.x > bp.x
 	var r_row: int = 0 if absf(p2_vel.x) < 30 else 1
-	var r_frame: int = GameManager.anim_frame(pulse_time, 4 if r_row == 0 else 8, 8.0)
+	var r_frame: int = GameManager.anim_frame(pulse_time, 2 if r_row == 0 else 4, 6.0)
 	GameManager.draw_denial_sprite(self, p2d + Vector2(0, 24), r_frame, r_row, 2.2, p2_facing_dir, p2_mod)
 
 	# --- Sync flash ---

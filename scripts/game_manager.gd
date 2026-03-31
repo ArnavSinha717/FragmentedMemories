@@ -124,10 +124,11 @@ func _load_character_sheets() -> void:
 ## row/col select the animation frame. scl scales from base 100px.
 func draw_blame_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
+	# Tint toward cold blue (blame's emotion color)
+	var tint := mod * Color(0.65, 0.7, 1.0)
 	if golem_sheet:
-		_draw_sheet_frame(canvas, golem_sheet, pos, GOLEM_FW, GOLEM_FH, scol, srow, scl, flip_h, mod)
+		_draw_sheet_frame(canvas, golem_sheet, pos, GOLEM_FW, GOLEM_FH, scol, srow, scl, flip_h, tint)
 	else:
-		# Fallback rectangle
 		var hw: float = 18.0 * scl
 		var hh: float = 36.0 * scl
 		canvas.draw_rect(Rect2(pos.x - hw, pos.y - hh * 2, hw * 2, hh * 2), mod * get_blame_color())
@@ -136,10 +137,11 @@ func draw_blame_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 ## Draw Denial (Rogue) sprite at pos (feet position).
 func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
+	# Tint toward warm orange (denial's emotion color)
+	var tint := mod * Color(1.0, 0.75, 0.55)
 	if rogue_sheet:
-		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, mod)
+		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, tint)
 	else:
-		# Fallback circle
 		var r: float = 18.0 * scl
 		canvas.draw_circle(Vector2(pos.x, pos.y - r), r, mod * get_denial_color())
 

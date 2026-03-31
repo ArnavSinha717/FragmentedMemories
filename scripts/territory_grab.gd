@@ -573,13 +573,13 @@ func _draw_denial(pos: Vector2, facing: float, grav: float) -> void:
 	var r_frame: int = 0
 	if absf(p2_vel.x) > 30:
 		r_row = 1
-		r_frame = GameManager.anim_frame(anim_time, 8, 12.0)
+		r_frame = GameManager.anim_frame(anim_time, 4, 10.0)
 	elif not p2_ground:
 		r_row = 1
-		r_frame = 3
+		r_frame = 1
 	else:
 		r_row = 0
-		r_frame = GameManager.anim_frame(anim_time, 4, 6.0)
+		r_frame = GameManager.anim_frame(anim_time, 2, 3.0)
 	if flip_v:
 		GameManager.draw_denial_sprite(self, Vector2(pos.x, pos.y), r_frame, r_row, 2.2, flip_h)
 	else:

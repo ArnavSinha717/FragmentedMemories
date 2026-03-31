@@ -713,7 +713,7 @@ func _draw_players() -> void:
 
 	var p2_bright: float = 0.6 + closeness * 0.4
 	if dim_timer_p2 > 0.0: p2_bright *= 0.4
-	var r_frame: int = GameManager.anim_frame(pulse_time, 4, 6.0)
+	var r_frame: int = GameManager.anim_frame(pulse_time, 2, 3.0)
 	GameManager.draw_denial_sprite(self, p2_pos + Vector2(0, 14), r_frame, 0, 1.1, false, Color(1, 1, 1, p2_bright))
 
 
