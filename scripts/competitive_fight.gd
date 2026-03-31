@@ -37,7 +37,7 @@ const GROUND_Y := 580.0
 const PLATFORM_LEFT := 140.0
 const PLATFORM_RIGHT := 1140.0
 const CEILING := 60.0
-const MATCH_TIME := 110.0
+const MATCH_TIME := 60.0
 # Floating platform collision rects (drawn + collided)
 const PLATFORMS: Array[Rect2] = [
 	Rect2(280, 460, 180, 10),   # Left platform
@@ -137,6 +137,7 @@ const DENIAL_BURST_PUSH := 500.0
 
 # ─── State ─────────────────────────────────────────────────────────────────
 var match_timer := MATCH_TIME
+var timer_enabled := true  # toggle with T / Select button
 var match_over := false
 var blame_won := false
 var phase: int = 0  # 0=instructions, 1=fighting, 2=unused, 3=advance
@@ -179,6 +180,20 @@ func _ready() -> void:
 	phase = 0
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	# T key or Select button (button 4) toggles timer
+	if event is InputEventKey and (event as InputEventKey).pressed and not (event as InputEventKey).echo:
+		if (event as InputEventKey).keycode == KEY_T:
+			timer_enabled = not timer_enabled
+			if timer_enabled:
+				match_timer = MATCH_TIME
+	if event is InputEventJoypadButton and (event as InputEventJoypadButton).pressed:
+		if (event as InputEventJoypadButton).button_index == 4:  # Select/Back
+			timer_enabled = not timer_enabled
+			if timer_enabled:
+				match_timer = MATCH_TIME
+
+
 func _process(delta: float) -> void:
 	pulse_time += delta
 
@@ -205,12 +220,15 @@ func _process_fight(delta: float) -> void:
 	if match_over:
 		return
 
-	match_timer -= delta
-	timer_label.text = str(ceili(match_timer))
-	if match_timer <= 0:
-		match_timer = 0
-		_end_match()
-		return
+	if timer_enabled:
+		match_timer -= delta
+		timer_label.text = str(ceili(match_timer))
+		if match_timer <= 0:
+			match_timer = 0
+			_end_match()
+			return
+	else:
+		timer_label.text = "NO LIMIT"
 
 	# Decay timers
 	p1_hit_flash = maxf(0.0, p1_hit_flash - delta * 4.0)
@@ -907,6 +925,10 @@ func _draw() -> void:
 		draw_string(font, Vector2(740, 243), "RShift / Y : Deflect (parry, reflects!)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
 		draw_string(font, Vector2(740, 261), "Num0 / B : Forget (teleport + decoy)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
 		draw_string(font, Vector2(740, 281), "L2+R2 : Bright Burst (-2pts, AoE)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.9, 0.65, 0.35, ca))
+		# Timer toggle hint
+		var timer_text: String = "Timer: ON (60s)" if timer_enabled else "Timer: OFF (no limit)"
+		draw_string(font, Vector2(520, 340), timer_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.55, 0.55, 0.65, ca * 0.7))
+		draw_string(font, Vector2(500, 360), "Press T / Select to toggle", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.45, 0.45, 0.55, ca * 0.5))
 		# Center text
 		var ct_a: float = 0.5 + sin(pulse_time * 2.0) * 0.2
 		if waiting_for_start:
