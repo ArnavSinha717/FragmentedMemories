@@ -49,7 +49,7 @@ var wisp_flash_pos := Vector2.ZERO
 var hazards: Array[Dictionary] = []
 
 # --- State ---
-var phase: int = 0  # 0=playing, 1=guilt_flash, 2=reveal_anim, 3=dialogue, 4=done
+var phase: int = -1  # -1=instructions, 0=playing, 1=guilt_flash, 2=reveal_anim, 3=dialogue, 4=done
 var time_elapsed := 0.0
 var reveal_progress := 0.0
 var dim_timer_p1 := 0.0
@@ -157,6 +157,11 @@ func _process(delta: float) -> void:
 	wisp_flash_timer = maxf(0.0, wisp_flash_timer - delta * 2.0)
 
 	match phase:
+		-1:
+			if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("p1_attack") or Input.is_action_just_pressed("p2_attack"):
+				phase = 0
+			queue_redraw()
+			return
 		0:
 			_update_game_phase()
 			_update_players(delta)
@@ -474,6 +479,9 @@ func _get_visibility(world_pos: Vector2) -> float:
 # === DRAWING ===
 
 func _draw() -> void:
+	if phase == -1:
+		_draw_instructions()
+		return
 	if phase == 1:
 		_draw_guilt_flash()
 		return
@@ -493,6 +501,33 @@ func _draw() -> void:
 	_draw_separation_indicator()
 	_draw_wisp_flash()
 	_draw_phase_indicator()
+
+
+func _draw_instructions() -> void:
+	var font := ThemeDB.fallback_font
+	var ca: float = 0.65 + sin(pulse_time * 3.0) * 0.12
+	var cc := Color(0.65, 0.65, 0.75, ca)
+	var hl := Color(0.5, 0.5, 0.65, ca * 0.6)
+	# Title
+	draw_string(font, Vector2(360, 120), "WALK THROUGH THE FOG", HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Color(0.7, 0.7, 0.85, ca))
+	draw_string(font, Vector2(500, 150), "Together", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.55, 0.55, 0.65, ca * 0.7))
+	# P1
+	draw_string(font, Vector2(80, 220), "BLAME", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_blame_color_light(), ca))
+	draw_line(Vector2(80, 227), Vector2(230, 227), Color(GameManager.get_blame_color(), ca * 0.3), 1.0)
+	draw_string(font, Vector2(80, 250), "Move: WASD / Stick", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hl)
+	draw_string(font, Vector2(80, 270), "F / X : Block warm embers", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+	# P2
+	draw_string(font, Vector2(740, 220), "DENIAL", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_denial_color_light(), ca))
+	draw_line(Vector2(740, 227), Vector2(900, 227), Color(GameManager.get_denial_color(), ca * 0.3), 1.0)
+	draw_string(font, Vector2(740, 250), "Move: Arrows / Stick", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hl)
+	draw_string(font, Vector2(740, 270), "Enter / X : Block cold shards", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+	# Shared tips
+	draw_string(font, Vector2(330, 360), "Stay close for a bigger shared light", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.6, 0.6, 0.7, ca * 0.8))
+	draw_string(font, Vector2(330, 385), "Stand near guilt walls to dissolve them", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.6, 0.6, 0.7, ca * 0.8))
+	draw_string(font, Vector2(330, 410), "Touch memory wisps together for light", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.6, 0.6, 0.7, ca * 0.8))
+	# Start prompt
+	var ct_a: float = 0.5 + sin(pulse_time * 2.0) * 0.2
+	draw_string(font, Vector2(440, 500), "Press SPACE / X to Start", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(0.8, 0.8, 0.9, ct_a))
 
 
 func _draw_guilt_flash() -> void:
@@ -673,13 +708,13 @@ func _draw_players() -> void:
 
 	var p1_bright: float = 0.6 + closeness * 0.4
 	if dim_timer_p1 > 0.0: p1_bright *= 0.4
-	draw_rect(Rect2(p1_pos - Vector2(12, 12), Vector2(24, 24)), Color(0.3, 0.4, 0.7, p1_bright))
-	draw_rect(Rect2(p1_pos - Vector2(6, 6), Vector2(12, 12)), Color(0.5, 0.6, 0.85, p1_bright * 0.6))
+	var g_frame: int = GameManager.anim_frame(pulse_time, 4, 6.0)
+	GameManager.draw_blame_sprite(self, p1_pos + Vector2(0, 12), g_frame, 5, 0.7, false, Color(1, 1, 1, p1_bright))
 
 	var p2_bright: float = 0.6 + closeness * 0.4
 	if dim_timer_p2 > 0.0: p2_bright *= 0.4
-	draw_circle(p2_pos, 14.0, Color(0.9, 0.55, 0.4, p2_bright))
-	draw_circle(p2_pos, 7.0, Color(1.0, 0.75, 0.6, p2_bright * 0.6))
+	var r_frame: int = GameManager.anim_frame(pulse_time, 4, 6.0)
+	GameManager.draw_denial_sprite(self, p2_pos + Vector2(0, 14), r_frame, 0, 1.1, false, Color(1, 1, 1, p2_bright))
 
 
 func _draw_player_glow() -> void:

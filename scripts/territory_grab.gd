@@ -86,7 +86,8 @@ var pit_fx:     Array[Dictionary] = []
 var match_timer := MATCH_TIME
 var match_over  := false
 var blame_won   := false
-var phase       := 0   # 0=play, 1=dialogue, 2=advance
+var phase       := -1  # -1=instructions, 0=play, 1=dialogue, 2=advance
+var anim_time   := 0.0  # for sprite animation
 
 
 func _ready() -> void:
@@ -98,6 +99,12 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if phase == -1:
+		anim_time += delta
+		if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("p1_attack") or Input.is_action_just_pressed("p2_attack"):
+			phase = 0
+		queue_redraw()
+		return
 	if phase == 2:
 		GameManager.advance_phase()
 		return
@@ -108,6 +115,7 @@ func _process(delta: float) -> void:
 	if match_over:
 		return
 
+	anim_time += delta
 	match_timer -= delta
 	timer_label.text = str(ceili(match_timer))
 	if match_timer <= 0.0:
@@ -390,6 +398,9 @@ func _update_fx(delta: float) -> void:
 
 func _draw() -> void:
 	# Background handled by global ShardBackground autoload
+	if phase == -1:
+		_draw_instructions()
+		return
 	_draw_surfaces()
 	_draw_middle_band()
 	_draw_fragments()
@@ -398,6 +409,34 @@ func _draw() -> void:
 	_draw_pit_fx()
 	_draw_blame(p1_pos, p1_facing, p1_grav)
 	_draw_denial(p2_pos, p2_facing, p2_grav)
+
+
+func _draw_instructions() -> void:
+	var font := ThemeDB.fallback_font
+	var ca: float = 0.65 + sin(anim_time * 3.0) * 0.12
+	var cc := Color(0.65, 0.65, 0.75, ca)
+	var hl := Color(0.5, 0.5, 0.65, ca * 0.6)
+	# Title
+	draw_string(font, Vector2(420, 120), "GRAVITY RUN", HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Color(0.7, 0.7, 0.85, ca))
+	draw_string(font, Vector2(420, 150), "Catch the Memories", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.55, 0.55, 0.65, ca * 0.7))
+	# P1
+	draw_string(font, Vector2(80, 220), "BLAME", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_blame_color_light(), ca))
+	draw_line(Vector2(80, 227), Vector2(230, 227), Color(GameManager.get_blame_color(), ca * 0.3), 1.0)
+	draw_string(font, Vector2(80, 250), "Move: A / D  |  Flip Gravity: W / A", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hl)
+	draw_string(font, Vector2(80, 270), "Catch BLUE fragments for +1 pt", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+	draw_string(font, Vector2(80, 290), "Wrong colour = -1 pt  |  Pits = -1 pt", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+	# P2
+	draw_string(font, Vector2(740, 220), "DENIAL", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_denial_color_light(), ca))
+	draw_line(Vector2(740, 227), Vector2(900, 227), Color(GameManager.get_denial_color(), ca * 0.3), 1.0)
+	draw_string(font, Vector2(740, 250), "Move: Left / Right  |  Flip: Up / A", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hl)
+	draw_string(font, Vector2(740, 270), "Catch ORANGE fragments for +1 pt", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+	draw_string(font, Vector2(740, 290), "Wrong colour = -1 pt  |  Pits = -1 pt", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+	# How to play
+	draw_string(font, Vector2(350, 370), "Flip gravity mid-air to catch fragments", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.6, 0.6, 0.7, ca * 0.8))
+	draw_string(font, Vector2(370, 395), "Speed increases as time runs out!", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.6, 0.6, 0.7, ca * 0.8))
+	# Start prompt
+	var ct_a: float = 0.5 + sin(anim_time * 2.0) * 0.2
+	draw_string(font, Vector2(440, 480), "Press SPACE / X to Start", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(0.8, 0.8, 0.9, ct_a))
 
 
 func _draw_surfaces() -> void:
@@ -507,57 +546,44 @@ func _draw_pit_fx() -> void:
 # All y-offsets use: surface_y + d * offset, with rects normalised so height is always positive.
 
 func _draw_blame(pos: Vector2, facing: float, grav: float) -> void:
-	var d  := -1.0 if grav > 0.0 else 1.0   # floor: d=-1 (up), ceiling: d=+1 (down)
-	var c  := GameManager.get_blame_color()
-	var cl := GameManager.get_blame_color_light()
-
-	# Helper: rect from base going in direction d
-	# d<0 → top_y = base + d*h = base - h, height = h
-	# d>0 → top_y = base,               height = h
-	var by := pos.y  # base y (surface attachment point)
-
-	# Legs  (0 → 24 from base)
-	_drect(pos.x - 13, by, 8,  24, d, c)
-	_drect(pos.x + 5,  by, 8,  24, d, c)
-	# Body  (24 → 58 from base)
-	_drect(pos.x - 14, by + d * 24, 28, 34, d, c)
-	_drect(pos.x - 9,  by + d * 30, 18, 22, d, Color(cl.r, cl.g, cl.b, 0.25))
-	# Head  (58 → 76 from base)
-	_drect(pos.x - 11, by + d * 58, 22, 18, d, c)
-	# Eyes
-	var ey := by + d * 62.0
-	var ex := pos.x + facing * 3.0
-	_drect(ex - 6, ey, 4, 4, d, Color(0.7, 0.75, 0.9, 0.8))
-	_drect(ex + 2, ey, 4, 4, d, Color(0.7, 0.75, 0.9, 0.8))
-	# Arms
-	_drect(pos.x - 22, by + d * 32, 8, 6, d, Color(c.r, c.g, c.b, 0.7))
-	_drect(pos.x + 14, by + d * 32, 8, 6, d, Color(c.r, c.g, c.b, 0.7))
+	var flip_v: bool = grav < 0.0  # on ceiling = upside down
+	var flip_h: bool = facing < 0.0
+	var g_row: int = 5
+	var g_frame: int = 0
+	if absf(p1_vel.x) > 30:
+		g_row = 6
+		g_frame = GameManager.anim_frame(anim_time, 6, 10.0)
+	elif not p1_ground:
+		g_row = 6
+		g_frame = 2
+	else:
+		g_row = 5
+		g_frame = GameManager.anim_frame(anim_time, 4, 6.0)
+	if flip_v:
+		# Draw upside-down: offset pos so feet are at ceiling surface
+		GameManager.draw_blame_sprite(self, Vector2(pos.x, pos.y), g_frame, g_row, 1.4, flip_h)
+	else:
+		GameManager.draw_blame_sprite(self, pos, g_frame, g_row, 1.4, flip_h)
 
 
 func _draw_denial(pos: Vector2, facing: float, grav: float) -> void:
-	var d  := -1.0 if grav > 0.0 else 1.0
-	var c  := GameManager.get_denial_color()
-	var cl := GameManager.get_denial_color_light()
-	var by := pos.y
-
-	# Legs
-	draw_circle(Vector2(pos.x - 7, by + d * 9),  6, c)
-	draw_circle(Vector2(pos.x + 7, by + d * 9),  6, c)
-	draw_circle(Vector2(pos.x - 7, by + d * 20), 5, c)
-	draw_circle(Vector2(pos.x + 7, by + d * 20), 5, c)
-	# Body
-	draw_circle(Vector2(pos.x, by + d * 40), 18, c)
-	draw_circle(Vector2(pos.x, by + d * 40), 11, Color(cl.r, cl.g, cl.b, 0.25))
-	# Head
-	draw_circle(Vector2(pos.x, by + d * 64), 13, c)
-	# Eyes
-	var ey := by + d * 66.0
-	var ex := pos.x + facing * 4.0
-	draw_circle(Vector2(ex - 4, ey), 2.5, Color(0.95, 0.85, 0.7, 0.8))
-	draw_circle(Vector2(ex + 4, ey), 2.5, Color(0.95, 0.85, 0.7, 0.8))
-	# Arms
-	draw_circle(Vector2(pos.x - 20, by + d * 44), 5, Color(c.r, c.g, c.b, 0.7))
-	draw_circle(Vector2(pos.x + 20, by + d * 44), 5, Color(c.r, c.g, c.b, 0.7))
+	var flip_v: bool = grav < 0.0
+	var flip_h: bool = facing < 0.0
+	var r_row: int = 0
+	var r_frame: int = 0
+	if absf(p2_vel.x) > 30:
+		r_row = 1
+		r_frame = GameManager.anim_frame(anim_time, 8, 12.0)
+	elif not p2_ground:
+		r_row = 1
+		r_frame = 3
+	else:
+		r_row = 0
+		r_frame = GameManager.anim_frame(anim_time, 4, 6.0)
+	if flip_v:
+		GameManager.draw_denial_sprite(self, Vector2(pos.x, pos.y), r_frame, r_row, 2.2, flip_h)
+	else:
+		GameManager.draw_denial_sprite(self, pos, r_frame, r_row, 2.2, flip_h)
 
 
 ## Draw a rect whose top-left is determined by direction d.

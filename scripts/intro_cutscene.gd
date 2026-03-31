@@ -88,23 +88,17 @@ func _draw() -> void:
 			draw_line(center, center + Vector2(35 * bp, -45 * bp), crack_col, 1.5)
 			draw_line(center, center + Vector2(-25 * bp, 50 * bp), crack_col, 1.5)
 
-	# Two shapes
+	# Two characters emerging
 	if phase >= 2:
-		# P2 Denial — warm circle
-		var denial_col := GameManager.get_denial_color()
-		denial_col.a = shape_alpha * 0.85
-		draw_circle(shape1_pos, 35.0, denial_col)
-		# Inner glow
-		draw_circle(shape1_pos, 20.0, Color(denial_col.r + 0.15, denial_col.g + 0.1, denial_col.b + 0.05, shape_alpha * 0.4))
+		# P2 Denial
+		var denial_mod := Color(1, 1, 1, shape_alpha * 0.85)
+		var d_frame: int = GameManager.anim_frame(time_elapsed, 4, 6.0)
+		GameManager.draw_denial_sprite(self, shape1_pos + Vector2(0, 35), d_frame, 0, 2.2, false, denial_mod)
 
-		# P1 Blame — cold rectangle
-		var blame_col := GameManager.get_blame_color()
-		blame_col.a = shape_alpha * 0.85
-		var rect := Rect2(shape2_pos - Vector2(30, 30), Vector2(60, 60))
-		draw_rect(rect, blame_col)
-		# Inner detail
-		var inner := Rect2(shape2_pos - Vector2(18, 18), Vector2(36, 36))
-		draw_rect(inner, Color(blame_col.r + 0.1, blame_col.g + 0.1, blame_col.b + 0.15, shape_alpha * 0.3))
+		# P1 Blame
+		var blame_mod := Color(1, 1, 1, shape_alpha * 0.85)
+		var b_frame: int = GameManager.anim_frame(time_elapsed, 4, 6.0)
+		GameManager.draw_blame_sprite(self, shape2_pos + Vector2(0, 30), b_frame, 5, 1.6, true, blame_mod)
 
 	# Fade overlay
 	if fade_alpha > 0.01:

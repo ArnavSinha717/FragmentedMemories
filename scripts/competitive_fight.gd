@@ -10,6 +10,26 @@ extends Control
 @onready var p1_score_label: Label = $HUD/P1Score
 @onready var p2_score_label: Label = $HUD/P2Score
 
+# ─── Sprite assets ─────────────────────────────────────────────────────────
+var golem_sheet: Texture2D    # Blame character
+var rogue_sheet: Texture2D    # Denial character
+var thunder_strike_sheet: Texture2D  # Guilt Slam VFX
+var dark_vfx_sheet: Texture2D        # Burden Zone / Self-Punishment
+var holy_impact_sheet: Texture2D     # Deflect parry VFX
+var firebolt_sheet: Texture2D        # Accusation projectile
+var fire_hit_sheet: Texture2D        # Bright Burst
+var smear_sheet: Texture2D           # Suppress slash
+var thrust_sheet: Texture2D          # Hit impact
+var battle_fx_sheet: Texture2D       # Generic hit sparks
+
+# Frame sizes (calculated from sheet dimensions)
+# Golem: 1000x1000, 10 cols x 10 rows = 100x100
+# Rogue: 500x444, ~10 cols x 8 rows = 50x55
+const GOLEM_FW := 100
+const GOLEM_FH := 100
+const ROGUE_FW := 50
+const ROGUE_FH := 45
+
 # ─── Arena ─────────────────────────────────────────────────────────────────
 const GRAVITY := 900.0
 const JUMP_FORCE := -430.0
@@ -113,8 +133,9 @@ const DENIAL_BURST_PUSH := 500.0
 var match_timer := MATCH_TIME
 var match_over := false
 var blame_won := false
-var phase: int = 0  # 0=countdown, 1=fighting, 2=unused, 3=advance
+var phase: int = 0  # 0=instructions, 1=fighting, 2=unused, 3=advance
 var countdown_timer := 3.5
+var waiting_for_start := true  # wait for space/X to begin
 var pulse_time := 0.0
 var ambient_break_timer := 0.0
 
@@ -131,6 +152,18 @@ func _ready() -> void:
 	p1_score_label.text = "BLAME: 0"
 	p2_score_label.text = "DENIAL: 0"
 
+	# Load sprite assets
+	golem_sheet = _load_tex("res://assets/blame_golem/Mecha-stone Golem 0.1/PNG sheet/Character_sheet.png")
+	rogue_sheet = _load_tex("res://assets/Fullmain.png")
+	thunder_strike_sheet = _load_tex("res://assets/Thunder Effect 02/Thunder Effect 02/Thunder Strike/Thunderstrike w blur.png")
+	dark_vfx_sheet = _load_tex("res://assets/Dark VFX 01 - 02/Dark VFX 1/Dark VFX 1 (40x32).png")
+	holy_impact_sheet = _load_tex("res://assets/Holy VFX 01-02/Holy VFX 01/Holy VFX 01 Impact.png")
+	firebolt_sheet = _load_tex("res://assets/Fire Effect 1/Fire Effect 1/Firebolt SpriteSheet.png")
+	fire_hit_sheet = _load_tex("res://assets/Fire Effect 1/Fire Effect 1/Fire Breath hit effect SpriteSheet.png")
+	smear_sheet = _load_tex("res://assets/Smear VFX 01/Smear VFX 01/Smear 01 Horizontal 1.png")
+	thrust_sheet = _load_tex("res://assets/Thrust/Thrusts 1 SpriteSheet.png")
+	battle_fx_sheet = _load_tex("res://assets/Effects/Effect 1 - Sprite Sheet.png")
+
 	fight_dialogue_queue = [
 		{"speaker": "Blame", "text": "Why are you still here?", "color": GameManager.get_blame_color_light()},
 		{"speaker": "Blame", "text": "Don't you remember what happened?", "color": GameManager.get_blame_color_light()},
@@ -145,11 +178,17 @@ func _process(delta: float) -> void:
 
 	match phase:
 		0:
-			countdown_timer -= delta
-			timer_label.text = str(ceili(countdown_timer))
-			if countdown_timer <= 0:
-				phase = 1
-				fight_dialogue_timer = 3.0
+			if waiting_for_start:
+				timer_label.text = ""
+				if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("p1_attack") or Input.is_action_just_pressed("p2_attack"):
+					waiting_for_start = false
+					countdown_timer = 3.5
+			else:
+				countdown_timer -= delta
+				timer_label.text = str(ceili(countdown_timer))
+				if countdown_timer <= 0:
+					phase = 1
+					fight_dialogue_timer = 3.0
 		1: _process_fight(delta)
 		3: GameManager.advance_phase()
 
@@ -318,8 +357,8 @@ func _process_blame_abilities(_delta: float) -> void:
 	if Input.is_action_just_pressed("p1_heavy") and blame_accuse_cd <= 0:
 		blame_accuse_cd = BLAME_ACCUSE_CD
 		var proj_vel := Vector2(BLAME_PROJ_SPEED * p1_facing, 0)
-		var size: float = 10.0 if not p1_powered_up else 16.0
-		blame_projectiles.append({"pos": Vector2(p1_pos.x + p1_facing * 25, p1_pos.y - 20), "vel": proj_vel, "size": size, "dmg": dmg_mult})
+		var proj_size: float = 10.0 if not p1_powered_up else 16.0
+		blame_projectiles.append({"pos": Vector2(p1_pos.x + p1_facing * 25, p1_pos.y - 20), "vel": proj_vel, "size": proj_size, "dmg": dmg_mult})
 
 	# Burden Zone (Dodge button) — slow field
 	if Input.is_action_just_pressed("p1_dodge") and blame_burden_cd <= 0:
@@ -574,60 +613,59 @@ func _draw() -> void:
 	draw_rect(Rect2(820 + shake.x, 420 + shake.y, 180, 10), fp_col)
 	draw_rect(Rect2(520 + shake.x, 320 + shake.y, 240, 10), fp_col)
 
-	# ── Burden Zones (dark vortex) ────────────────────────────────────
+	# ── Burden Zones (dark VFX sprite + fallback) ────────────────────
 	for zone: Dictionary in burden_zones:
 		var zp: Vector2 = (zone.pos as Vector2) + shake
 		var life: float = (zone.timer as float) / BURDEN_DURATION
-		var za: float = life * 0.35
-		# Swirling dark rings
-		for ring in range(4):
-			var r: float = BURDEN_RADIUS * (0.3 + float(ring) * 0.2)
-			var rot: float = pulse_time * (1.5 - float(ring) * 0.3) * (1.0 if ring % 2 == 0 else -1.0)
-			draw_arc(zp, r, rot, rot + TAU * 0.7, 16, Color(0.2, 0.1, 0.3, za * (1.0 - float(ring) * 0.2)), 2.5 - float(ring) * 0.4)
-		# Center dark mass
-		draw_circle(zp, 15, Color(0.1, 0.05, 0.15, za * 1.2))
-		# Outer glow
-		draw_circle(zp, BURDEN_RADIUS, Color(0.15, 0.08, 0.22, za * 0.15))
+		var za: float = life * 0.4
+		if dark_vfx_sheet:
+			# Dark VFX 1: 400x64, 40x32 frames = 10 cols x 2 rows
+			var f: int = _anim_frame(pulse_time, 10, 8.0)
+			_draw_vfx_strip(dark_vfx_sheet, zp + Vector2(0, -20), 40, 32, f, 10, 5.0, false, Color(1, 1, 1, za))
+			# Second layer slightly offset for density
+			_draw_vfx_strip(dark_vfx_sheet, zp + Vector2(15, -15), 40, 32, (f + 3) % 10, 10, 4.0, true, Color(0.8, 0.6, 1.0, za * 0.6))
+		else:
+			for ring in range(4):
+				var r: float = BURDEN_RADIUS * (0.3 + float(ring) * 0.2)
+				var rot: float = pulse_time * (1.5 - float(ring) * 0.3)
+				draw_arc(zp, r, rot, rot + TAU * 0.7, 16, Color(0.2, 0.1, 0.3, za * 0.8), 2.0)
+		# Outer boundary ring
+		draw_arc(zp, BURDEN_RADIUS, 0, TAU, 24, Color(0.3, 0.15, 0.35, za * 0.25), 2.0)
+		draw_circle(zp, BURDEN_RADIUS, Color(0.1, 0.05, 0.15, za * 0.08))
 
-	# ── Shockwave (ground crack + debris) ─────────────────────────────
+	# ── Shockwave (thunder strike sprite + fallback) ─────────────────
 	if blame_shockwave_active:
 		var sw_y: float = GROUND_Y - 3 + shake.y
 		var sw_x: float = blame_shockwave_x + shake.x
-		var powered := p1_powered_up
-		var sw_col := Color(0.5, 0.3, 0.85, 0.8) if powered else Color(0.3, 0.4, 0.8, 0.7)
-		var glow_col := Color(0.4, 0.25, 0.7, 0.3) if powered else Color(0.25, 0.3, 0.65, 0.2)
-		# Ground crack line from origin to wave front
-		draw_line(Vector2(blame_shockwave_origin + shake.x, sw_y), Vector2(sw_x, sw_y), Color(sw_col.r, sw_col.g, sw_col.b, 0.3), 2.0)
-		# Wave front — tall energy pillar
-		var wave_h: float = 60.0 if powered else 45.0
-		draw_rect(Rect2(sw_x - 4, sw_y - wave_h, 8, wave_h), sw_col)
-		draw_rect(Rect2(sw_x - 8, sw_y - wave_h * 0.7, 16, wave_h * 0.5), glow_col)
-		# Trailing debris
-		for i in range(6):
-			var trail_x: float = sw_x - blame_shockwave_dir * float(i) * 18.0
-			var trail_h: float = wave_h * (1.0 - float(i) / 6.0)
-			var trail_a: float = 0.5 * (1.0 - float(i) / 6.0)
-			draw_line(Vector2(trail_x, sw_y), Vector2(trail_x, sw_y - trail_h), Color(sw_col.r, sw_col.g, sw_col.b, trail_a), 2.0)
+		var sw_pos := Vector2(sw_x, sw_y - 20)
+		# Thunder strike sprite animation
+		if thunder_strike_sheet:
+			var dist: float = absf(blame_shockwave_x - blame_shockwave_origin)
+			var progress: float = clampf(dist / BLAME_SLAM_RANGE, 0.0, 1.0)
+			var t_frame: int = _anim_frame(progress, 13, 13.0, false)
+			_draw_vfx_strip(thunder_strike_sheet, sw_pos, 64, 64, t_frame, 13, 3.0, blame_shockwave_dir < 0)
+		else:
+			# Fallback programmatic
+			var sw_col := Color(0.3, 0.4, 0.8, 0.7)
+			draw_rect(Rect2(sw_x - 4, sw_y - 45, 8, 45), sw_col)
+		# Ground crack trail
+		draw_line(Vector2(blame_shockwave_origin + shake.x, sw_y), Vector2(sw_x, sw_y), Color(0.3, 0.3, 0.6, 0.3), 2.0)
 
-	# ── Projectiles (glowing shards with trails) ─────────────────────
+	# ── Projectiles (firebolt sprites or fallback) ───────────────────
 	for proj: Dictionary in blame_projectiles:
 		var pp: Vector2 = (proj.pos as Vector2) + shake
 		var sz: float = proj.size as float
-		var pdir: Vector2 = (proj.vel as Vector2).normalized()
-		var powered := p1_powered_up
-		var proj_col := Color(0.4, 0.3, 0.85, 0.9) if powered else Color(0.3, 0.4, 0.8, 0.85)
-		# Glow
-		draw_circle(pp, sz + 6, Color(proj_col.r, proj_col.g, proj_col.b, 0.15))
-		# Crystal shard shape (diamond)
-		var pts := PackedVector2Array([
-			pp + pdir * sz * 1.5, pp + pdir.rotated(PI * 0.5) * sz * 0.6,
-			pp - pdir * sz * 0.8, pp + pdir.rotated(-PI * 0.5) * sz * 0.6])
-		draw_colored_polygon(pts, proj_col)
-		# Trail
-		for t in range(4):
-			var trail_pos: Vector2 = pp - pdir * float(t + 1) * 10.0
-			var trail_a: float = 0.3 * (1.0 - float(t) / 4.0)
-			draw_circle(trail_pos, sz * 0.4, Color(proj_col.r, proj_col.g, proj_col.b, trail_a))
+		var pflip: bool = (proj.vel as Vector2).x < 0
+		if firebolt_sheet:
+			var f: int = _anim_frame(pulse_time, 11, 14.0)
+			_draw_vfx_strip(firebolt_sheet, pp, 48, 48, f, 11, 2.5, pflip, Color(0.6, 0.7, 1.0))
+		else:
+			var pdir: Vector2 = (proj.vel as Vector2).normalized()
+			var proj_col := Color(0.3, 0.4, 0.8, 0.85)
+			draw_circle(pp, sz, proj_col)
+			draw_line(pp, pp - pdir * 20.0, Color(proj_col.r, proj_col.g, proj_col.b, 0.3), 2.0)
+		# Glow always
+		draw_circle(pp, sz + 4, Color(0.3, 0.4, 0.8, 0.1))
 
 	# ── Decoys (ghostly Denial with shimmer) ──────────────────────────
 	for decoy: Dictionary in decoys:
@@ -643,121 +681,132 @@ func _draw() -> void:
 		# Shimmer aura
 		draw_arc(dp + Vector2(0, -35), 30, 0, TAU, 16, Color(GameManager.get_denial_color_light(), da * 0.15 + flicker * 0.5), 1.5)
 
-	# ── Deflect Shield (golden arc with sparkles) ─────────────────────
+	# ── Deflect Shield (holy VFX sprite + arcs) ───────────────────────
 	if denial_deflect_active > 0:
 		var sa: float = denial_deflect_active / DENIAL_DEFLECT_WINDOW
-		var sp2: Vector2 = p2_pos + shake
-		# Multi-layer shield arcs
-		for layer in range(3):
-			var r: float = 32.0 + float(layer) * 8.0
-			var w: float = 4.0 - float(layer) * 1.0
-			var a: float = sa * (0.6 - float(layer) * 0.15)
-			draw_arc(sp2 + Vector2(p2_facing * 15, -30), r, p2_facing * -0.9, p2_facing * 0.9, 20, Color(1.0, 0.85, 0.3, a), w)
+		var dfl_pos: Vector2 = p2_pos + shake + Vector2(p2_facing * 20, -35)
+		if holy_impact_sheet:
+			# Holy VFX 01 Impact: 224x32, 32px frames = 7 frames
+			var f: int = _anim_frame(DENIAL_DEFLECT_WINDOW - denial_deflect_active, 7, 20.0, false)
+			_draw_vfx_strip(holy_impact_sheet, dfl_pos, 32, 32, f, 7, 4.0, p2_facing < 0, Color(1, 1, 1, sa))
+		else:
+			for layer in range(3):
+				var r: float = 32.0 + float(layer) * 8.0
+				draw_arc(dfl_pos, r, p2_facing * -0.9, p2_facing * 0.9, 20, Color(1.0, 0.85, 0.3, sa * 0.5), 3.0)
 		if denial_deflect_success:
-			# Big golden flash
-			draw_circle(sp2 + Vector2(0, -30), 50, Color(1.0, 0.9, 0.3, sa * 0.25))
-			_spawn_vfx(sp2 + Vector2(0, -30), Color(1.0, 0.85, 0.3), 6, 100.0, 2.0)
+			draw_circle(dfl_pos, 50, Color(1.0, 0.9, 0.3, sa * 0.3))
 
-	# ── Burst AoE (expanding warm rings + particles) ──────────────────
+	# ── Burst AoE (fire hit sprite + rings) ───────────────────────────
 	if denial_burst_anim > 0:
-		var sp2: Vector2 = p2_pos + shake
+		var burst_pos: Vector2 = p2_pos + shake + Vector2(0, -30)
 		var ba: float = denial_burst_anim
+		if fire_hit_sheet:
+			# Fire Breath hit: sprite sheet for the explosion
+			var fh_frame: int = _anim_frame(1.0 - ba, 8, 12.0, false)
+			_draw_vfx_strip(fire_hit_sheet, burst_pos, 48, 48, fh_frame, 8, 5.0, false, Color(1, 1, 1, ba))
+		# Expanding rings always
 		for ring in range(3):
 			var r: float = DENIAL_BURST_RADIUS * (1.0 - ba * 0.2) * (0.4 + float(ring) * 0.3)
-			var a: float = ba * (0.4 - float(ring) * 0.1)
-			draw_arc(sp2 + Vector2(0, -30), r, 0, TAU, 32, Color(1.0, 0.7, 0.3, a), 3.0 - float(ring))
-		draw_circle(sp2 + Vector2(0, -30), 25, Color(1.0, 0.9, 0.5, ba * 0.3))
+			draw_arc(burst_pos, r, 0, TAU, 32, Color(1.0, 0.7, 0.3, ba * (0.3 - float(ring) * 0.08)), 2.0)
+		draw_circle(burst_pos, 20, Color(1.0, 0.9, 0.5, ba * 0.2))
 
 	# ── Power-Up Aura (swirling energy) ───────────────────────────────
 	if p1_powered_up:
-		var sp1: Vector2 = p1_pos + shake
+		var aura_pos: Vector2 = p1_pos + shake
 		for i in range(6):
 			var angle: float = pulse_time * 3.0 + float(i) * TAU / 6.0
 			var r: float = 35.0 + sin(pulse_time * 4.0 + float(i)) * 8.0
-			var orb_pos: Vector2 = sp1 + Vector2(cos(angle), sin(angle)) * r + Vector2(0, -35)
+			var orb_pos: Vector2 = aura_pos + Vector2(cos(angle), sin(angle)) * r + Vector2(0, -35)
 			draw_circle(orb_pos, 3, Color(0.5, 0.3, 0.85, 0.4))
-		draw_circle(sp1 + Vector2(0, -35), 42, Color(0.4, 0.2, 0.7, 0.08 + sin(pulse_time * 5.0) * 0.04))
+		draw_circle(aura_pos + Vector2(0, -35), 42, Color(0.4, 0.2, 0.7, 0.08 + sin(pulse_time * 5.0) * 0.04))
 
-	# ── P1 Blame (detailed rectangle character) ──────────────────────
-	var bc := GameManager.get_blame_color()
-	var bcl := GameManager.get_blame_color_light()
-	if p1_hit_flash > 0: bc = bc.lerp(Color.WHITE, p1_hit_flash * 0.6)
-	if p1_stun > 0: bc.a = 0.5
-	if p1_powered_up: bc = bc.lerp(Color(0.5, 0.3, 0.8), 0.3)
+	# ── P1 Blame (Mecha Golem sprite) ────────────────────────────────
 	var sp1: Vector2 = p1_pos + shake
-	var bob1: float = sin(pulse_time * 3.0) * 2.0 if p1_on_ground and p1_stun <= 0 else 0.0
+	var p1_flip: bool = p1_facing < 0
+	var p1_mod := Color.WHITE
+	if p1_hit_flash > 0: p1_mod = Color(1, 0.5, 0.5, 1).lerp(Color.WHITE, 1.0 - p1_hit_flash)
+	if p1_stun > 0: p1_mod.a = 0.5
+	if p1_powered_up: p1_mod = p1_mod.lerp(Color(0.7, 0.5, 1.0), 0.4)
 
 	# Shadow
-	draw_rect(Rect2(sp1.x - 14, GROUND_Y + shake.y - 2, 28, 4), Color(0, 0, 0, 0.15))
-	# Legs (animated bob)
-	var leg_off: float = sin(pulse_time * 6.0) * 3.0 if absf(p1_vel.x) > 30 else 0.0
-	draw_rect(Rect2(sp1.x - 13, sp1.y - 24 + bob1 + leg_off, 9, 24), bc)
-	draw_rect(Rect2(sp1.x + 4, sp1.y - 24 + bob1 - leg_off, 9, 24), bc)
-	# Body — with shoulder pads (heavier look)
-	draw_rect(Rect2(sp1.x - 18, sp1.y - 58 + bob1, 36, 36), bc)
-	draw_rect(Rect2(sp1.x - 22, sp1.y - 56 + bob1, 6, 12), bc)  # Left shoulder
-	draw_rect(Rect2(sp1.x + 16, sp1.y - 56 + bob1, 6, 12), bc)  # Right shoulder
-	draw_rect(Rect2(sp1.x - 11, sp1.y - 52 + bob1, 22, 24), Color(bcl.r, bcl.g, bcl.b, 0.2))
-	# Head — with a heavier brow
-	draw_rect(Rect2(sp1.x - 13, sp1.y - 76 + bob1, 26, 20), bc)
-	draw_rect(Rect2(sp1.x - 15, sp1.y - 76 + bob1, 30, 5), Color(bc.r * 0.7, bc.g * 0.7, bc.b * 0.7))  # Brow
-	# Eyes (glow when powered)
-	var eye_col := Color(0.8, 0.6, 1.0, 0.9) if p1_powered_up else Color(0.65, 0.7, 0.9, 0.8)
-	draw_rect(Rect2(sp1.x + p1_facing * 3 - 6, sp1.y - 70 + bob1, 5, 5), eye_col)
-	draw_rect(Rect2(sp1.x + p1_facing * 3 + 2, sp1.y - 70 + bob1, 5, 5), eye_col)
-	# Arms
-	var arm1_y: float = sp1.y - 48 + bob1
-	if blame_slam_anim > 0:
-		# Slam: arm slashes downward
-		var arm_ext: float = blame_slam_anim * 35.0
-		draw_rect(Rect2(sp1.x + p1_facing * 18, arm1_y - 5 + (1.0 - blame_slam_anim) * 20, p1_facing * arm_ext, 10), bcl)
-		draw_rect(Rect2(sp1.x + p1_facing * (18 + arm_ext) - 6, arm1_y + (1.0 - blame_slam_anim) * 18, 14, 14), bc)  # Fist
-	else:
-		draw_rect(Rect2(sp1.x + p1_facing * 18, arm1_y, 10, 8), Color(bc.r, bc.g, bc.b, 0.7))
-		draw_rect(Rect2(sp1.x - p1_facing * 20, arm1_y + 4, 10, 8), Color(bc.r, bc.g, bc.b, 0.5))
+	_draw_shadow_ellipse(Rect2(sp1.x - 20, GROUND_Y + shake.y - 4, 40, 8), Color(0, 0, 0, 0.2))
 
-	# ── P2 Denial (detailed circle character) ─────────────────────────
-	var dc := GameManager.get_denial_color()
-	var dcl := GameManager.get_denial_color_light()
-	if p2_hit_flash > 0: dc = dc.lerp(Color.WHITE, p2_hit_flash * 0.6)
-	if p2_stun > 0: dc.a = 0.5
+	# Pick golem animation row & frame
+	# Sheet layout (10 cols x 10 rows, 100x100):
+	# Row 5: Idle (8 frames), Row 6: Walk (10 frames), Row 2: Attack (8 frames)
+	# Row 3: Hurt/defend (5 frames), Row 8: Death (4 frames)
+	var g_row: int = 5
+	var g_frame: int = 0
+	var g_scale: float = 1.8  # Scale up from 100px
+
+	if p1_stun > 0:
+		g_row = 3  # Hurt/defend
+		g_frame = 0
+	elif blame_slam_anim > 0:
+		g_row = 2  # Attack
+		g_frame = _anim_frame(1.0 - blame_slam_anim, 8, 16.0, false)
+	elif not p1_on_ground:
+		g_row = 6  # Walk frame for jump
+		g_frame = 2
+	elif absf(p1_vel.x) > 30:
+		g_row = 6  # Walk
+		g_frame = _anim_frame(pulse_time, 6, 10.0)
+	else:
+		g_row = 5  # Idle
+		g_frame = _anim_frame(pulse_time, 4, 6.0)
+
+	GameManager.draw_blame_sprite(self, sp1, g_frame, g_row, g_scale, p1_flip, p1_mod)
+
+	# Power-up aura (sprite-based glow behind character)
+	if p1_powered_up:
+		for i in range(4):
+			var angle: float = pulse_time * 3.0 + float(i) * TAU / 4.0
+			var orb_pos: Vector2 = sp1 + Vector2(cos(angle), sin(angle)) * 45.0 + Vector2(0, -50)
+			draw_circle(orb_pos, 4, Color(0.6, 0.3, 1.0, 0.4))
+
+	# ── P2 Denial (Rogue Knight sprite) ───────────────────────────────
 	var sp2: Vector2 = p2_pos + shake
-	var bob2: float = sin(pulse_time * 3.5 + 1.0) * 2.0 if p2_on_ground and p2_stun <= 0 else 0.0
+	var p2_flip: bool = p2_facing < 0
+	var p2_mod := Color.WHITE
+	if p2_hit_flash > 0: p2_mod = Color(1, 0.5, 0.5, 1).lerp(Color.WHITE, 1.0 - p2_hit_flash)
+	if p2_stun > 0: p2_mod.a = 0.5
 
 	# Shadow
-	draw_circle(Vector2(sp2.x, GROUND_Y + shake.y - 1), 12, Color(0, 0, 0, 0.12))
-	# Legs (bouncy circles)
-	var lbob: float = sin(pulse_time * 7.0) * 2.5 if absf(p2_vel.x) > 30 else 0.0
-	draw_circle(Vector2(sp2.x - 8, sp2.y - 8 + bob2 + lbob), 7, dc)
-	draw_circle(Vector2(sp2.x + 8, sp2.y - 8 + bob2 - lbob), 7, dc)
-	draw_circle(Vector2(sp2.x - 8, sp2.y - 20 + bob2), 5.5, dc)
-	draw_circle(Vector2(sp2.x + 8, sp2.y - 20 + bob2), 5.5, dc)
-	# Body (larger, with inner glow)
-	draw_circle(Vector2(sp2.x, sp2.y - 40 + bob2), 20, dc)
-	draw_circle(Vector2(sp2.x, sp2.y - 40 + bob2), 13, Color(dcl.r, dcl.g, dcl.b, 0.25))
-	# Scarf-like trailing detail
-	draw_circle(Vector2(sp2.x - p2_facing * 12, sp2.y - 32 + bob2), 5, Color(dc.r, dc.g, dc.b, 0.4))
-	# Head
-	draw_circle(Vector2(sp2.x, sp2.y - 66 + bob2), 14, dc)
-	# Eyes (expressive)
-	var e2x: float = sp2.x + p2_facing * 5
-	var e2y: float = sp2.y - 68 + bob2
-	draw_circle(Vector2(e2x - 5, e2y), 3.5, Color(1, 1, 1, 0.9))
-	draw_circle(Vector2(e2x + 5, e2y), 3.5, Color(1, 1, 1, 0.9))
-	draw_circle(Vector2(e2x - 5 + p2_facing, e2y), 1.8, Color(0.2, 0.15, 0.1))  # Pupil
-	draw_circle(Vector2(e2x + 5 + p2_facing, e2y), 1.8, Color(0.2, 0.15, 0.1))
-	# Arms
-	if denial_suppress_anim > 0:
-		var push_r: float = 25.0 + (1.0 - denial_suppress_anim) * 50.0
-		var push_a: float = denial_suppress_anim * 0.5
-		# Expanding push wave
-		draw_arc(sp2 + Vector2(p2_facing * 20, -38 + bob2), push_r, p2_facing * -0.8, p2_facing * 0.8, 16, Color(dcl.r, dcl.g, dcl.b, push_a), 3.0)
-		draw_arc(sp2 + Vector2(p2_facing * 20, -38 + bob2), push_r * 0.6, p2_facing * -0.6, p2_facing * 0.6, 12, Color(1.0, 0.9, 0.7, push_a * 0.5), 2.0)
-		# Extended arm
-		draw_circle(Vector2(sp2.x + p2_facing * 25, sp2.y - 42 + bob2), 6, dcl)
+	_draw_shadow_ellipse(Rect2(sp2.x - 16, GROUND_Y + shake.y - 3, 32, 6), Color(0, 0, 0, 0.15))
+
+	# Pick rogue animation row & frame
+	# Sheet layout (Fullmain.png, 500x444, 50x74 frames, 10 cols x 6 rows):
+	# Row 0: Idle (4 frames), Row 1: Run (8 frames), Row 2: Attack1 (10 frames)
+	# Row 3: Attack2 (8 frames), Row 4: Stand (6 frames), Row 5: Crouch (4 frames)
+	var r_row: int = 0
+	var r_frame: int = 0
+	var r_scale: float = 2.5  # Scale up from 50px — larger to match golem
+
+	if p2_stun > 0:
+		r_row = 5  # Crouch/hurt
+		r_frame = 0
+	elif denial_suppress_anim > 0:
+		r_row = 2  # Attack1 (slash)
+		r_frame = _anim_frame(1.0 - denial_suppress_anim, 10, 20.0, false)
+	elif denial_deflect_active > 0:
+		r_row = 3  # Attack2 / parry
+		r_frame = 0
+	elif not p2_on_ground:
+		r_row = 1  # Run frame for jump
+		r_frame = 3
+	elif absf(p2_vel.x) > 30:
+		r_row = 1  # Run
+		r_frame = _anim_frame(pulse_time, 8, 12.0)
 	else:
-		draw_circle(Vector2(sp2.x + p2_facing * 18, sp2.y - 42 + bob2), 5, Color(dc.r, dc.g, dc.b, 0.6))
-		draw_circle(Vector2(sp2.x - p2_facing * 16, sp2.y - 38 + bob2), 5, Color(dc.r, dc.g, dc.b, 0.4))
+		r_row = 0  # Idle
+		r_frame = _anim_frame(pulse_time, 4, 6.0)
+
+	GameManager.draw_denial_sprite(self, sp2, r_frame, r_row, r_scale, p2_flip, p2_mod)
+
+	# Suppress wave VFX (smear sprite)
+	if denial_suppress_anim > 0 and smear_sheet:
+		var smear_frame: int = _anim_frame(1.0 - denial_suppress_anim, 5, 12.0, false)
+		_draw_vfx_strip(smear_sheet, sp2 + Vector2(p2_facing * 40, -35), 48, 48, smear_frame, 5, 3.0, p2_facing < 0, Color(1, 1, 1, denial_suppress_anim))
 
 	# ── VFX Particles ─────────────────────────────────────────────────
 	for p: Dictionary in vfx:
@@ -814,7 +863,62 @@ func _draw() -> void:
 		draw_string(font, Vector2(740, 281), "Enter+RShift : Bright Burst (-2pts, AoE)", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.9, 0.65, 0.35, ca))
 		# Center text
 		var ct_a: float = 0.5 + sin(pulse_time * 2.0) * 0.2
-		draw_string(font, Vector2(530, 450), "GET READY", HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color(0.7, 0.7, 0.8, ct_a))
+		if waiting_for_start:
+			draw_string(font, Vector2(440, 430), "Press SPACE / X to Start", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(0.8, 0.8, 0.9, ct_a))
+		else:
+			draw_string(font, Vector2(530, 450), "GET READY", HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color(0.7, 0.7, 0.8, ct_a))
+
+
+func _anim_frame(time: float, frame_count: int, fps: float = 10.0, looping: bool = true) -> int:
+	var frame: int = int(time * fps)
+	if looping:
+		return frame % maxi(frame_count, 1)
+	else:
+		return mini(frame, frame_count - 1)
+
+
+func _draw_shadow_ellipse(rect: Rect2, color: Color) -> void:
+	var center := rect.get_center()
+	var pts := PackedVector2Array()
+	for i in range(16):
+		var angle: float = float(i) / 16.0 * TAU
+		pts.append(center + Vector2(cos(angle) * rect.size.x * 0.5, sin(angle) * rect.size.y * 0.5))
+	draw_colored_polygon(pts, color)
+
+
+func _load_tex(path: String) -> Texture2D:
+	if ResourceLoader.exists(path):
+		return load(path) as Texture2D
+	return null
+
+
+func _draw_sprite_frame(tex: Texture2D, pos: Vector2, fw: int, fh: int,
+		scol: int, srow: int, scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
+	if not tex:
+		return
+	var src := Rect2(scol * fw, srow * fh, fw, fh)
+	var dw: float = float(fw) * scl
+	var dh: float = float(fh) * scl
+	var dest := Rect2(pos.x - dw * 0.5, pos.y - dh, dw, dh)
+	if flip_h:
+		src.position.x += src.size.x
+		src.size.x = -src.size.x
+	draw_texture_rect_region(tex, dest, src, mod)
+
+
+func _draw_vfx_strip(tex: Texture2D, pos: Vector2, frame_w: int, frame_h: int,
+		frame: int, total_frames: int, scl: float, flip_h: bool = false, mod: Color = Color.WHITE) -> void:
+	if not tex:
+		return
+	var f: int = clampi(frame, 0, total_frames - 1)
+	var src := Rect2(f * frame_w, 0, frame_w, frame_h)
+	var dw: float = float(frame_w) * scl
+	var dh: float = float(frame_h) * scl
+	var dest := Rect2(pos.x - dw * 0.5, pos.y - dh * 0.5, dw, dh)
+	if flip_h:
+		src.position.x += src.size.x
+		src.size.x = -src.size.x
+	draw_texture_rect_region(tex, dest, src, mod)
 
 
 func _end_match() -> void:

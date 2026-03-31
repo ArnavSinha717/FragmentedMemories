@@ -104,9 +104,11 @@ func _draw() -> void:
 
 	if not merged:
 		# P1 Blame approaching
-		draw_rect(Rect2(p1_pos - Vector2(22, 22), Vector2(44, 44)), GameManager.get_blame_color())
+		var b_frame: int = GameManager.anim_frame(time_elapsed, 6, 10.0)
+		GameManager.draw_blame_sprite(self, p1_pos + Vector2(0, 22), b_frame, 6, 1.4, false)
 		# P2 Denial approaching
-		draw_circle(p2_pos, 24, GameManager.get_denial_color())
+		var d_frame: int = GameManager.anim_frame(time_elapsed, 8, 12.0)
+		GameManager.draw_denial_sprite(self, p2_pos + Vector2(0, 24), d_frame, 1, 2.2, true)
 	else:
 		# Merged shape — a new form, blending both colors
 		var merged_col := GameManager.get_blame_color().lerp(GameManager.get_denial_color(), 0.5)

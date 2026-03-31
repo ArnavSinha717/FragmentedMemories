@@ -69,14 +69,13 @@ func _draw() -> void:
 		var mid := (shape1_pos + shape2_pos) * 0.5
 		draw_circle(mid, 8 * walk_progress, Color(0.6, 0.55, 0.6, walk_progress * 0.3))
 
-	# P2 Denial — warm circle
-	draw_circle(shape1_pos, 30, GameManager.get_denial_color())
-	draw_circle(shape1_pos, 18, Color(GameManager.get_denial_color_light(), 0.3))
+	# P2 Denial
+	var d_frame: int = GameManager.anim_frame(time_elapsed, 4, 6.0)
+	GameManager.draw_denial_sprite(self, shape1_pos + Vector2(0, 30), d_frame, 0, 2.2, false)
 
-	# P1 Blame — cold square
-	var blame_col := GameManager.get_blame_color()
-	draw_rect(Rect2(shape2_pos - Vector2(25, 25), Vector2(50, 50)), blame_col)
-	draw_rect(Rect2(shape2_pos - Vector2(15, 15), Vector2(30, 30)), Color(GameManager.get_blame_color_light(), 0.3))
+	# P1 Blame
+	var b_frame: int = GameManager.anim_frame(time_elapsed, 4, 6.0)
+	GameManager.draw_blame_sprite(self, shape2_pos + Vector2(0, 25), b_frame, 5, 1.4, true)
 
 	# Fade
 	var fade := 0.0

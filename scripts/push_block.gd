@@ -17,7 +17,7 @@ const PLAYER_SPEED := 230.0
 const PLAYER_SIZE  := 16.0
 
 # ─── State ─────────────────────────────────────────────────────────────────
-var phase: int = 0  # 0=playing, 1=dialogue, 2=done
+var phase: int = -1  # -1=instructions, 0=playing, 1=dialogue, 2=done
 var pulse_time := 0.0
 
 # ─── Players ───────────────────────────────────────────────────────────────
@@ -76,6 +76,33 @@ const SOLID_COL  := Color(0.2, 0.2, 0.27)
 func _ready() -> void:
 	dialogue.dialogue_finished.connect(_on_dialogue_done)
 	_build_level()
+
+
+func _draw_instructions() -> void:
+	var font := ThemeDB.fallback_font
+	var ca: float = 0.65 + sin(pulse_time * 3.0) * 0.12
+	var cc := Color(0.65, 0.65, 0.75, ca)
+	var hl := Color(0.5, 0.5, 0.65, ca * 0.6)
+	# Title
+	draw_string(font, Vector2(350, 120), "CARRYING THE WEIGHT", HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Color(0.7, 0.7, 0.85, ca))
+	draw_string(font, Vector2(450, 150), "Together", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.55, 0.55, 0.65, ca * 0.7))
+	# P1
+	draw_string(font, Vector2(80, 220), "BLAME", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_blame_color_light(), ca))
+	draw_line(Vector2(80, 227), Vector2(230, 227), Color(GameManager.get_blame_color(), ca * 0.3), 1.0)
+	draw_string(font, Vector2(80, 250), "Move: A / D  |  Jump: W / A", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hl)
+	draw_string(font, Vector2(80, 270), "BLUE ghost platforms solidify near you", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+	# P2
+	draw_string(font, Vector2(740, 220), "DENIAL", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(GameManager.get_denial_color_light(), ca))
+	draw_line(Vector2(740, 227), Vector2(900, 227), Color(GameManager.get_denial_color(), ca * 0.3), 1.0)
+	draw_string(font, Vector2(740, 250), "Move: Left / Right  |  Jump: Up / A", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hl)
+	draw_string(font, Vector2(740, 270), "ORANGE ghost platforms solidify near you", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, cc)
+	# Shared tips
+	draw_string(font, Vector2(340, 360), "Stay close to slow the guilt shadow", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.6, 0.6, 0.7, ca * 0.8))
+	draw_string(font, Vector2(340, 385), "Collect gems to restore clarity", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.6, 0.6, 0.7, ca * 0.8))
+	draw_string(font, Vector2(340, 410), "Reach the exit together to proceed", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.6, 0.6, 0.7, ca * 0.8))
+	# Start prompt
+	var ct_a: float = 0.5 + sin(pulse_time * 2.0) * 0.2
+	draw_string(font, Vector2(440, 500), "Press SPACE / X to Start", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(0.8, 0.8, 0.9, ct_a))
 
 
 func _build_level() -> void:
@@ -159,6 +186,11 @@ func _add_plat(rect: Rect2, type: String) -> void:
 func _process(delta: float) -> void:
 	pulse_time += delta
 
+	if phase == -1:
+		if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("p1_attack") or Input.is_action_just_pressed("p2_attack"):
+			phase = 0
+		queue_redraw()
+		return
 	if phase == 2:
 		GameManager.advance_phase()
 		return
@@ -358,6 +390,9 @@ func _update_particles(delta: float) -> void:
 
 # ═══════════════════════════════════════════════════════════════════════════
 func _draw() -> void:
+	if phase == -1:
+		_draw_instructions()
+		return
 	# ── Platforms ──────────────────────────────────────────────────────
 	for plat: Dictionary in platforms:
 		var rect: Rect2 = plat["rect"]
@@ -451,18 +486,16 @@ func _draw() -> void:
 
 	# ── Players ───────────────────────────────────────────────────────
 	# P1 Blame
-	draw_rect(Rect2(p1_pos - Vector2(PLAYER_SIZE, PLAYER_SIZE), Vector2(PLAYER_SIZE * 2, PLAYER_SIZE * 2)),
-		GameManager.get_blame_color())
-	draw_rect(Rect2(p1_pos - Vector2(PLAYER_SIZE * 0.5, PLAYER_SIZE * 0.5), Vector2(PLAYER_SIZE, PLAYER_SIZE)),
-		Color(GameManager.get_blame_color_light(), 0.3))
-	draw_rect(Rect2(p1_pos.x - 5, p1_pos.y - 7, 3, 3), Color(0.7, 0.8, 1.0, 0.8))
-	draw_rect(Rect2(p1_pos.x + 2, p1_pos.y - 7, 3, 3), Color(0.7, 0.8, 1.0, 0.8))
+	var g_row: int = 5 if absf(p1_vel.x) < 30 else 6
+	var g_frame: int = GameManager.anim_frame(pulse_time, 4 if g_row == 5 else 6, 8.0)
+	var p1_flip: bool = p1_vel.x < -10.0 if absf(p1_vel.x) > 10 else false
+	GameManager.draw_blame_sprite(self, p1_pos + Vector2(0, PLAYER_SIZE), g_frame, g_row, 0.8, p1_flip)
 
 	# P2 Denial
-	draw_circle(p2_pos, PLAYER_SIZE, GameManager.get_denial_color())
-	draw_circle(p2_pos, PLAYER_SIZE * 0.55, Color(GameManager.get_denial_color_light(), 0.3))
-	draw_circle(Vector2(p2_pos.x - 4, p2_pos.y - 5), 2, Color(0.95, 0.85, 0.7, 0.8))
-	draw_circle(Vector2(p2_pos.x + 4, p2_pos.y - 5), 2, Color(0.95, 0.85, 0.7, 0.8))
+	var r_row: int = 0 if absf(p2_vel.x) < 30 else 1
+	var r_frame: int = GameManager.anim_frame(pulse_time, 4 if r_row == 0 else 8, 8.0)
+	var p2_flip: bool = p2_vel.x < -10.0 if absf(p2_vel.x) > 10 else false
+	GameManager.draw_denial_sprite(self, p2_pos + Vector2(0, PLAYER_SIZE), r_frame, r_row, 1.2, p2_flip)
 
 	# ── HUD ───────────────────────────────────────────────────────────
 	# Clarity meter

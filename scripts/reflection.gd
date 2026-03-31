@@ -76,13 +76,13 @@ func _draw() -> void:
 	draw_string(font, Vector2(640 - sub_size.x * 0.5, 430), sub,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.55, 0.55, 0.6, subtitle_alpha * 0.7))
 
-	# Two small shapes — now at peace
+	# Two small characters — now at peace
 	if subtitle_alpha > 0.3:
 		var sa := subtitle_alpha * 0.5
-		# Blame shape (small)
-		draw_rect(Rect2(Vector2(580, 470), Vector2(16, 16)), Color(GameManager.get_blame_color(), sa))
-		# Denial shape (small)
-		draw_circle(Vector2(700, 478), 9, Color(GameManager.get_denial_color(), sa))
+		var b_frame: int = GameManager.anim_frame(time_elapsed, 4, 4.0)
+		GameManager.draw_blame_sprite(self, Vector2(588, 486), b_frame, 5, 0.5, false, Color(1, 1, 1, sa))
+		var d_frame: int = GameManager.anim_frame(time_elapsed, 4, 4.0)
+		GameManager.draw_denial_sprite(self, Vector2(700, 486), d_frame, 0, 0.75, true, Color(1, 1, 1, sa))
 		# Connecting line
 		draw_line(Vector2(596, 478), Vector2(691, 478), Color(0.5, 0.5, 0.55, sa * 0.4), 1.0)
 

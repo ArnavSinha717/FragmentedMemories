@@ -17,8 +17,10 @@ enum Phase {
 	MAIN_MENU,
 	INTRO_CUTSCENE,
 	COMPETITIVE_1,
+	WINNER_1,
 	FRAGMENT_REVEAL_1,
 	COMPETITIVE_2,
+	WINNER_2,
 	FRAGMENT_REVEAL_2,
 	TRANSITION_CUTSCENE,
 	COOPERATIVE_1,
@@ -38,6 +40,7 @@ var hue_value: float = 0.5 # 0=blame, 1=denial
 # Track who wins each competitive minigame
 var blame_wins: int = 0
 var denial_wins: int = 0
+var round_winners: Array[bool] = []  # per-round: true = blame won that round
 
 # Fragments shown so far
 var revealed_fragments: Array[String] = []
@@ -74,7 +77,9 @@ var scene_map: Dictionary = {
 	Phase.MAIN_MENU: "res://scenes/main_menu.tscn",
 	Phase.INTRO_CUTSCENE: "res://scenes/intro_cutscene.tscn",
 	Phase.COMPETITIVE_1: "res://scenes/competitive_fight.tscn",
+	Phase.WINNER_1: "res://scenes/winner_screen.tscn",
 	Phase.COMPETITIVE_2: "res://scenes/territory_grab.tscn",
+	Phase.WINNER_2: "res://scenes/winner_screen.tscn",
 	Phase.TRANSITION_CUTSCENE: "res://scenes/transition_cutscene.tscn",
 	Phase.COOPERATIVE_1: "res://scenes/push_block.tscn",
 	Phase.COOPERATIVE_2: "res://scenes/sync_press.tscn",
@@ -90,10 +95,76 @@ var scene_map: Dictionary = {
 }
 
 
+# ─── Character sprite sheets ──────────────────────────────────────────────
+var golem_sheet: Texture2D    # Blame (Mecha Golem) — 1000x1000, 100x100 frames, 10 cols x 10 rows
+var rogue_sheet: Texture2D    # Denial (Rogue Knight) — 500x444, 50x74 frames, 10 cols x 6 rows
+const GOLEM_FW := 100
+const GOLEM_FH := 100
+const ROGUE_FW := 50
+const ROGUE_FH := 45
+
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_load_character_sheets()
 	_setup_music()
 	generate_shards()
+
+
+func _load_character_sheets() -> void:
+	var golem_path := "res://assets/blame_golem/Mecha-stone Golem 0.1/PNG sheet/Character_sheet.png"
+	var rogue_path := "res://assets/Fullmain.png"
+	if ResourceLoader.exists(golem_path):
+		golem_sheet = load(golem_path) as Texture2D
+	if ResourceLoader.exists(rogue_path):
+		rogue_sheet = load(rogue_path) as Texture2D
+
+
+## Draw Blame (Golem) sprite at pos (feet position).
+## row/col select the animation frame. scl scales from base 100px.
+func draw_blame_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
+		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
+	if golem_sheet:
+		_draw_sheet_frame(canvas, golem_sheet, pos, GOLEM_FW, GOLEM_FH, scol, srow, scl, flip_h, mod)
+	else:
+		# Fallback rectangle
+		var hw: float = 18.0 * scl
+		var hh: float = 36.0 * scl
+		canvas.draw_rect(Rect2(pos.x - hw, pos.y - hh * 2, hw * 2, hh * 2), mod * get_blame_color())
+
+
+## Draw Denial (Rogue) sprite at pos (feet position).
+func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
+		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
+	if rogue_sheet:
+		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, mod)
+	else:
+		# Fallback circle
+		var r: float = 18.0 * scl
+		canvas.draw_circle(Vector2(pos.x, pos.y - r), r, mod * get_denial_color())
+
+
+func _draw_sheet_frame(canvas: CanvasItem, tex: Texture2D, pos: Vector2,
+		fw: int, fh: int, scol: int, srow: int, scl: float, flip_h: bool, mod: Color) -> void:
+	var src := Rect2(scol * fw, srow * fh, fw, fh)
+	var dw: float = float(fw) * scl
+	var dh: float = float(fh) * scl
+	# pos is feet — sprite draws upward from feet, centered horizontally
+	var dest := Rect2(pos.x - dw * 0.5, pos.y - dh, dw, dh)
+	if flip_h:
+		# Flip the source region instead of the dest to avoid offset bugs
+		src.position.x += src.size.x
+		src.size.x = -src.size.x
+	canvas.draw_texture_rect_region(tex, dest, src, mod)
+
+
+## Convenience: get an animation frame index from time
+func anim_frame(time: float, frame_count: int, fps: float = 10.0, looping: bool = true) -> int:
+	var frame: int = int(time * fps)
+	if looping:
+		return frame % maxi(frame_count, 1)
+	else:
+		return mini(frame, frame_count - 1)
 
 
 func _setup_music() -> void:
@@ -254,6 +325,7 @@ func reset_game() -> void:
 	hue_value = 0.5
 	blame_wins = 0
 	denial_wins = 0
+	round_winners.clear()
 	revealed_fragments.clear()
 	fragment_order.clear()
 	boss_charge = 0.0
@@ -264,31 +336,35 @@ func reset_game() -> void:
 
 
 func _debug_skip() -> void:
-	# Ensure fragment order is always built before skipping anything
-	if fragment_order.is_empty():
-		# Force a default order so nothing breaks
-		register_competitive_win(true)   # Blame wins round 1
-		register_competitive_win(false)  # Denial wins round 2
-
 	match current_phase:
 		Phase.COMPETITIVE_1:
-			if blame_wins + denial_wins < 1:
+			if round_winners.size() < 1:
 				register_competitive_win(randf() > 0.5)
+		Phase.WINNER_1, Phase.WINNER_2:
+			pass
 		Phase.COMPETITIVE_2:
-			if blame_wins + denial_wins < 2:
+			if round_winners.size() < 2:
 				register_competitive_win(randf() > 0.5)
 		Phase.FRAGMENT_REVEAL_1, Phase.FRAGMENT_REVEAL_2, Phase.FRAGMENT_REVEAL_3, Phase.FRAGMENT_REVEAL_4:
+			# Build default order if somehow empty (skipped all competitive)
+			if fragment_order.is_empty():
+				register_competitive_win(true)
+				register_competitive_win(false)
 			if revealed_fragments.size() < fragment_order.size():
 				get_next_fragment()
 		Phase.COOPERATIVE_1:
+			if fragment_order.is_empty():
+				register_competitive_win(true)
+				register_competitive_win(false)
 			coop_phase = maxi(coop_phase, 1)
 		Phase.COOPERATIVE_2:
 			coop_phase = maxi(coop_phase, 2)
 		Phase.FULL_MEMORY:
-			# Make sure all fragments are consumed
+			if fragment_order.is_empty():
+				register_competitive_win(true)
+				register_competitive_win(false)
 			while revealed_fragments.size() < fragment_order.size():
 				get_next_fragment()
-			# Stop any active corruption
 			collapse_active = false
 		Phase.BOSS_FIGHT:
 			collapse_active = false
@@ -304,44 +380,45 @@ func set_hue(value: float) -> void:
 
 
 func register_competitive_win(blame_won: bool) -> void:
+	round_winners.append(blame_won)
 	if blame_won:
 		blame_wins += 1
 	else:
 		denial_wins += 1
 	_rebuild_fragment_order()
+	print("[GM] register_competitive_win: blame_won=", blame_won, " round_winners=", round_winners, " -> fragment_order=", fragment_order)
+
+
+func get_last_winner_is_blame() -> bool:
+	if round_winners.is_empty():
+		return true
+	return round_winners[-1]
 
 
 func _rebuild_fragment_order() -> void:
 	fragment_order.clear()
-	# Competitive rounds: winner determines which fragment surfaces
-	# Blame winning → bad memories first, Denial winning → good memories first
+	# Winner of each round gets their next unseen fragment.
+	# Blame queue: B1, B2.  Denial queue: G1, G2.
+	var blame_queue: Array[String] = [BAD_1, BAD_2]
+	var denial_queue: Array[String] = [GOOD_1, GOOD_2]
 	var competitive_fragments: Array[String] = []
-	var remaining_fragments: Array[String] = []
 
-	# Round 1
-	if blame_wins >= 1:
-		competitive_fragments.append(BAD_1)
-	else:
-		competitive_fragments.append(GOOD_1)
+	for i: int in round_winners.size():
+		if round_winners[i]:
+			# Blame won this round — pop next blame fragment
+			if not blame_queue.is_empty():
+				competitive_fragments.append(blame_queue.pop_front())
+		else:
+			# Denial won this round — pop next denial fragment
+			if not denial_queue.is_empty():
+				competitive_fragments.append(denial_queue.pop_front())
 
-	# Round 2
-	if blame_wins >= 2:
-		competitive_fragments.append(BAD_2)
-	elif denial_wins >= 2:
-		competitive_fragments.append(GOOD_2)
-	elif blame_wins == 1 and denial_wins == 1:
-		# Mixed: blame won round 1, denial won round 2
-		competitive_fragments.append(GOOD_2)
-	else:
-		competitive_fragments.append(BAD_2)
+	# Cooperative rounds get whatever remains (blame leftovers then denial leftovers)
+	var remaining: Array[String] = []
+	remaining.append_array(denial_queue)
+	remaining.append_array(blame_queue)
 
-	# Cooperative rounds get whatever remains
-	var all_fragments: Array[String] = [GOOD_1, GOOD_2, BAD_1, BAD_2]
-	for f: String in all_fragments:
-		if f not in competitive_fragments:
-			remaining_fragments.append(f)
-
-	fragment_order = competitive_fragments + remaining_fragments
+	fragment_order = competitive_fragments + remaining
 
 
 func get_next_fragment() -> String:
@@ -352,7 +429,9 @@ func get_next_fragment() -> String:
 		if frag == BAD_2:
 			bad2_revealed = true
 		fragment_revealed.emit(frag)
+		print("[GM] get_next_fragment: idx=", idx, " frag=", frag, " order=", fragment_order, " revealed=", revealed_fragments)
 		return frag
+	print("[GM] get_next_fragment: NO FRAGMENT LEFT, idx=", idx, " order=", fragment_order)
 	return ""
 
 
@@ -372,18 +451,19 @@ func advance_phase() -> void:
 		Phase.INTRO_CUTSCENE:
 			next_phase = Phase.COMPETITIVE_1
 		Phase.COMPETITIVE_1:
+			next_phase = Phase.WINNER_1
+		Phase.WINNER_1:
 			next_phase = Phase.FRAGMENT_REVEAL_1
 		Phase.FRAGMENT_REVEAL_1:
 			next_phase = Phase.COMPETITIVE_2
 		Phase.COMPETITIVE_2:
+			next_phase = Phase.WINNER_2
+		Phase.WINNER_2:
 			next_phase = Phase.FRAGMENT_REVEAL_2
 		Phase.FRAGMENT_REVEAL_2:
-			if bad2_revealed and not transition_shown:
-				next_phase = Phase.TRANSITION_CUTSCENE
-				transition_shown = true
-			else:
-				next_phase = Phase.COOPERATIVE_1
+			next_phase = Phase.COOPERATIVE_1
 		Phase.TRANSITION_CUTSCENE:
+			# Kept for safety but no longer triggered
 			if coop_phase == 0:
 				next_phase = Phase.COOPERATIVE_1
 			else:
@@ -392,11 +472,7 @@ func advance_phase() -> void:
 			coop_phase = 1
 			next_phase = Phase.FRAGMENT_REVEAL_3
 		Phase.FRAGMENT_REVEAL_3:
-			if bad2_revealed and not transition_shown:
-				next_phase = Phase.TRANSITION_CUTSCENE
-				transition_shown = true
-			else:
-				next_phase = Phase.COOPERATIVE_2
+			next_phase = Phase.COOPERATIVE_2
 		Phase.COOPERATIVE_2:
 			coop_phase = 2
 			next_phase = Phase.FRAGMENT_REVEAL_4
@@ -416,6 +492,7 @@ func advance_phase() -> void:
 		_:
 			next_phase = Phase.MAIN_MENU
 
+	print("[GM] advance_phase: ", Phase.keys()[current_phase], " -> ", Phase.keys()[next_phase])
 	current_phase = next_phase
 	phase_changed.emit(Phase.keys()[current_phase])
 	_load_phase_scene()

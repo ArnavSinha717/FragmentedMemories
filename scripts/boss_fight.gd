@@ -599,24 +599,28 @@ func _draw() -> void:
 
 	# --- Players ---
 	# P1 Blame
-	var p1c := GameManager.get_blame_color()
+	var p1_mod := Color.WHITE
 	if p1_hit_flash > 0:
-		p1c = p1c.lerp(Color(0.8, 0.2, 0.2), p1_hit_flash * 0.6)
+		p1_mod = Color(1, 0.5, 0.5, 1).lerp(Color.WHITE, 1.0 - p1_hit_flash)
 	if p1_stun > 0:
-		p1c.a = 0.5  # Dimmed when stunned
+		p1_mod.a = 0.5
 	var p1d: Vector2 = p1_pos + shake
-	draw_rect(Rect2(p1d - Vector2(22, 22), Vector2(44, 44)), p1c)
-	draw_rect(Rect2(p1d - Vector2(13, 13), Vector2(26, 26)), Color(GameManager.get_blame_color_light(), 0.3))
+	var p1_facing_dir: bool = p1d.x > bp.x  # face toward boss
+	var g_row: int = 5 if absf(p1_vel.x) < 30 else 6
+	var g_frame: int = GameManager.anim_frame(pulse_time, 4 if g_row == 5 else 6, 8.0)
+	GameManager.draw_blame_sprite(self, p1d + Vector2(0, 22), g_frame, g_row, 1.4, p1_facing_dir, p1_mod)
 
 	# P2 Denial
-	var p2c := GameManager.get_denial_color()
+	var p2_mod := Color.WHITE
 	if p2_hit_flash > 0:
-		p2c = p2c.lerp(Color(0.8, 0.2, 0.2), p2_hit_flash * 0.6)
+		p2_mod = Color(1, 0.5, 0.5, 1).lerp(Color.WHITE, 1.0 - p2_hit_flash)
 	if p2_stun > 0:
-		p2c.a = 0.5
+		p2_mod.a = 0.5
 	var p2d: Vector2 = p2_pos + shake
-	draw_circle(p2d, 24, p2c)
-	draw_circle(p2d, 14, Color(GameManager.get_denial_color_light(), 0.3))
+	var p2_facing_dir: bool = p2d.x > bp.x
+	var r_row: int = 0 if absf(p2_vel.x) < 30 else 1
+	var r_frame: int = GameManager.anim_frame(pulse_time, 4 if r_row == 0 else 8, 8.0)
+	GameManager.draw_denial_sprite(self, p2d + Vector2(0, 24), r_frame, r_row, 2.2, p2_facing_dir, p2_mod)
 
 	# --- Sync flash ---
 	if sync_flash > 0:
