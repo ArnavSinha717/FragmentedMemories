@@ -31,9 +31,9 @@ const ROGUE_FW := 50
 const ROGUE_FH := 37
 
 # ─── Arena ─────────────────────────────────────────────────────────────────
-const GRAVITY := 1200.0       # Heavier — snappier jumps, less floaty
-const JUMP_FORCE := -420.0    # Lower arc
-const GROUND_Y := 580.0       # Lower ground = more head room
+const GRAVITY := 1100.0
+const JUMP_FORCE := -520.0    # Reaches ~457px from ground — can land on platforms
+const GROUND_Y := 580.0
 const PLATFORM_LEFT := 140.0
 const PLATFORM_RIGHT := 1140.0
 const CEILING := 60.0
@@ -289,6 +289,7 @@ func _move_blame(delta: float) -> void:
 		p1_vel.y = JUMP_FORCE
 		p1_on_ground = false
 
+	var prev_y1: float = p1_pos.y
 	p1_vel.y += GRAVITY * delta
 	p1_pos += p1_vel * delta
 	p1_on_ground = false
@@ -296,8 +297,8 @@ func _move_blame(delta: float) -> void:
 		p1_pos.y = GROUND_Y
 		p1_vel.y = 0.0
 		p1_on_ground = true
-	else:
-		_check_platform_land(p1_pos, p1_vel, true)
+	elif p1_vel.y > 0:
+		_check_platform_land(prev_y1, true)
 	p1_pos.y = maxf(p1_pos.y, CEILING)
 	p1_pos.x = clampf(p1_pos.x, PLATFORM_LEFT, PLATFORM_RIGHT)
 
@@ -322,6 +323,7 @@ func _move_denial(delta: float) -> void:
 		p2_vel.y = JUMP_FORCE
 		p2_on_ground = false
 
+	var prev_y2: float = p2_pos.y
 	p2_vel.y += GRAVITY * delta
 	p2_pos += p2_vel * delta
 	p2_on_ground = false
@@ -329,8 +331,8 @@ func _move_denial(delta: float) -> void:
 		p2_pos.y = GROUND_Y
 		p2_vel.y = 0.0
 		p2_on_ground = true
-	else:
-		_check_platform_land(p2_pos, p2_vel, false)
+	elif p2_vel.y > 0:
+		_check_platform_land(prev_y2, false)
 	p2_pos.y = maxf(p2_pos.y, CEILING)
 	p2_pos.x = clampf(p2_pos.x, PLATFORM_LEFT, PLATFORM_RIGHT)
 
@@ -545,20 +547,20 @@ func _update_burden_zones(delta: float) -> void:
 			p2_vel.x += push_dir * 400.0 * delta  # Constant outward push
 
 
-func _check_platform_land(pos: Vector2, vel: Vector2, is_p1: bool) -> void:
-	# Only land on platforms when falling down
-	if vel.y <= 0:
-		return
+func _check_platform_land(prev_y: float, is_p1: bool) -> void:
+	var pos: Vector2 = p1_pos if is_p1 else p2_pos
 	for plat: Rect2 in PLATFORMS:
+		var plat_top: float = plat.position.y
+		# Within horizontal bounds?
 		if pos.x > plat.position.x and pos.x < plat.position.x + plat.size.x:
-			# Check if feet crossed the platform top this frame
-			if pos.y >= plat.position.y and pos.y - vel.y * get_process_delta_time() < plat.position.y + 15:
+			# Was above platform last frame, now at or below it?
+			if prev_y <= plat_top and pos.y >= plat_top:
 				if is_p1:
-					p1_pos.y = plat.position.y
+					p1_pos.y = plat_top
 					p1_vel.y = 0.0
 					p1_on_ground = true
 				else:
-					p2_pos.y = plat.position.y
+					p2_pos.y = plat_top
 					p2_vel.y = 0.0
 					p2_on_ground = true
 				return
