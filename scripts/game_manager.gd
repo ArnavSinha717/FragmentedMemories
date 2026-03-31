@@ -155,7 +155,7 @@ func draw_blame_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow
 func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
 	# Tint toward warm orange (denial's emotion color)
-	var tint := mod * Color(1.7, 1.3, 1.0)
+	var tint := mod * Color(2.5, 1.6, 0.8)
 	if rogue_sheet:
 		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, tint)
 	else:
@@ -166,7 +166,7 @@ func draw_denial_sprite(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 ## Draw Denial sprite vertically flipped (for ceiling). pos = head attachment point.
 func draw_denial_sprite_flipped(canvas: CanvasItem, pos: Vector2, scol: int, srow: int,
 		scl: float, flip_h: bool, mod: Color = Color.WHITE) -> void:
-	var tint := mod * Color(1.7, 1.3, 1.0)
+	var tint := mod * Color(2.5, 1.6, 0.8)
 	if rogue_sheet:
 		_draw_sheet_frame(canvas, rogue_sheet, pos, ROGUE_FW, ROGUE_FH, scol, srow, scl, flip_h, tint, true)
 	else:
